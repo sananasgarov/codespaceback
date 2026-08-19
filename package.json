@@ -1,0 +1,29 @@
+{
+  "name": "devroom-backend",
+  "version": "1.0.0",
+  "description": "DevRoom backend - real-time collaborative code rooms (Node.js/Express port of the original Spring Boot service)",
+  "main": "src/server.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1",
+    "morgan": "^1.10.0",
+    "path-to-regexp": "^6.2.2",
+    "sockjs": "^0.3.24",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
