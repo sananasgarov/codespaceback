@@ -112,11 +112,16 @@ application prefix `/app`.
   immediately, instead of waiting for their first code keystroke.
 - `SEND /app/stream/{roomCode}/{participantId}` — student streams code (raw text body)
 - `SEND /app/watch/{roomCode}/{participantId}` — teacher requests current code
-- `SEND /app/edit/{roomCode}/{participantId}` — teacher edits student code
+- `SEND /app/edit-lock/{roomCode}/{participantId}` — teacher opens/cancels edit mode (raw body `"true"`/`"false"`;
+  not part of the original Java contract) — broadcasts `{participantId, locked}` on the `/edit` topic below so the
+  student's editor locks the instant the teacher starts editing, before anything is actually saved
+- `SEND /app/edit/{roomCode}/{participantId}` — teacher saves an edit (raw text body = new code); persists it and
+  broadcasts `{participantId, nickname, code}` on the `/edit` topic, which the student treats as both the new code
+  and an implicit unlock
 - `SEND /app/execution/{roomCode}/{participantId}` — broadcast an execution result
-- `SUBSCRIBE /topic/room/{roomCode}/participants` — online/offline status
-- `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}` — code stream / watch / edit
-- `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}/edit`
+- `SUBSCRIBE /topic/room/{roomCode}/participants` — online/offline status, new-participant joins
+- `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}` — code stream / watch response
+- `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}/edit` — edit-lock state + saved teacher edits
 - `SUBSCRIBE /topic/room/{roomCode}/executions`
 
 ## ⚠️ Security note

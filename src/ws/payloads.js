@@ -21,6 +21,15 @@ function buildCodePayload(participantId, nickname, code) {
   return `{"participantId":"${escape(participantId)}","nickname":"${escape(nickname)}","code":"${escape(code || '')}"}`;
 }
 
+// /topic/room/{roomCode}/participant/{participantId}/edit - sent the moment a
+// teacher opens/closes edit mode, before they've saved anything. The student
+// client locks its editor on locked:true and unlocks on locked:false (a
+// buildCodePayload message on the same topic, sent when the teacher actually
+// saves, also implies unlocked - see codeStream.handler.js).
+function buildEditLockPayload(participantId, locked) {
+  return `{"participantId":"${escape(participantId)}","locked":${Boolean(locked)}}`;
+}
+
 function buildExecutionPayload(participantId, result) {
   return `{"participantId":"${escape(participantId)}","result":"${escape(result || '')}"}`;
 }
@@ -44,6 +53,7 @@ module.exports = {
   buildStatusPayload,
   buildJoinPayload,
   buildCodePayload,
+  buildEditLockPayload,
   buildExecutionPayload,
   buildExecutionResultPayload,
 };
