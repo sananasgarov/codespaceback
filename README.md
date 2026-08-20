@@ -56,6 +56,7 @@ before the server can boot (Atlas dashboard -> Connect -> Drivers).
 | `JWT_SECRET` | Signs teacher auth tokens - **required**, the app refuses to boot without it (see `src/utils/jwt.js`) |
 | `JWT_EXPIRES_IN` | Teacher token lifetime (default `7d`) |
 | `TRIAL_DAYS` | Free room-creation trial length for a newly registered teacher (default `7`) |
+| `BAN_DURATION_HOURS` | How long a teacher-issued ban keeps a nickname out of the room it was banned from (default `2`) |
 | `ADMIN_KEY` | Shared secret for the internal `/billing/admin/...` and `/rooms/cleanup` endpoints (`x-admin-key` header). Unset = those endpoints are locked entirely |
 | `BILLING_CURRENCY`, `BILLING_PRICE_MINOR`, `BILLING_PERIOD_DAYS` | Placeholder pricing shown by `GET /billing/plan` - no payment gateway is wired up yet, see below |
 

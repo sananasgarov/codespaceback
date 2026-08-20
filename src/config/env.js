@@ -43,6 +43,13 @@ const env = {
   // How long a newly registered teacher can create rooms for free.
   trialDays: toInt(process.env.TRIAL_DAYS, 7),
 
+  // How long a teacher-issued ban keeps a nickname out of the room it was
+  // issued in (see participant.service.js#banParticipant). Nickname-scoped,
+  // not device-scoped - there's no student account to key a ban off of, so
+  // this is the same identity boundary the app already uses everywhere else
+  // (nickname uniqueness per room - see joinRoom).
+  banDurationHours: toInt(process.env.BAN_DURATION_HOURS, 2),
+
   // Shared secret for the internal/admin-only billing endpoints (manually
   // activating a teacher's subscription while no real payment gateway is
   // wired up). Left unset -> those endpoints stay locked (see middleware/adminAuth.js).

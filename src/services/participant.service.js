@@ -1,5 +1,6 @@
 const participantRepository = require('../repositories/participant.repository');
 const roomRepository = require('../repositories/room.repository');
+const roomBanRepository = require('../repositories/roomBan.repository');
 const participantMapper = require('../mappers/participant.mapper');
 const Role = require('../enums/role');
 const RoomStatus = require('../enums/roomStatus');
@@ -7,8 +8,10 @@ const RoomNotFoundException = require('../errors/RoomNotFoundException');
 const RoomNotActiveException = require('../errors/RoomNotActiveException');
 const NicknameAlreadyTakenException = require('../errors/NicknameAlreadyTakenException');
 const ParticipantNotFoundException = require('../errors/ParticipantNotFoundException');
+const ParticipantBannedException = require('../errors/ParticipantBannedException');
 const ForbiddenException = require('../errors/ForbiddenException');
 const messagingTemplate = require('../ws/messagingTemplate');
+const env = require('../config/env');
 const {
   buildJoinPayload,
   buildEditingEnabledPayload,
@@ -31,6 +34,12 @@ async function joinRoom(request) {
   if (room.status !== RoomStatus.ACTIVE) {
     logger.warn(`Join failed: Room '${request.roomCode}' is currently ${room.status}`);
     throw new RoomNotActiveException(request.roomCode);
+  }
+
+  const activeBan = await roomBanRepository.findActiveBan(room._id, request.nickname);
+  if (activeBan) {
+    logger.warn(`Join failed: '${request.nickname}' is banned from room '${request.roomCode}' until ${activeBan.bannedUntil.toISOString()}`);
+    throw new ParticipantBannedException(activeBan.bannedUntil);
   }
 
   const existing = await participantRepository.findByNicknameAndRoomCode(request.nickname, request.roomCode);
@@ -158,13 +167,11 @@ async function getOwnCode(participantId, roomCode) {
   return { id: participant.id, currentCode: participant.currentCode || '' };
 }
 
-// Teacher-only: permanently removes a student from the room. Unlike
-// setEditingEnabled (which just locks the editor), this deletes the
-// participant outright, so the student is forced back to the join screen and
-// the nickname becomes free again.
-async function kickParticipant(participantId, teacherId) {
-  logger.info(`Kicking participantId=${participantId}`);
-
+// Shared by kickParticipant/banParticipant below: loads the participant,
+// checks they belong to a room the caller actually owns, and throws
+// otherwise. Both actions are "remove this student from the room" - they
+// only differ in whether a re-join is blocked afterwards.
+async function getOwnedParticipantOrThrow(participantId, teacherId) {
   const participant = await participantRepository.findById(participantId);
   if (!participant || !participant.room) {
     throw new ParticipantNotFoundException(participantId);
@@ -173,10 +180,23 @@ async function kickParticipant(participantId, teacherId) {
   const room = await roomRepository.findByRoomCode(participant.room.roomCode);
   if (!room || !room.teacher || String(room.teacher) !== String(teacherId)) {
     logger.warn(
-      `Forbidden: teacher ${teacherId} attempted to kick participant ${participantId} from a room they do not own`
+      `Forbidden: teacher ${teacherId} attempted to manage participant ${participantId} in a room they do not own`
     );
     throw new ForbiddenException('You can only manage participants in rooms you created');
   }
+
+  return { participant, room };
+}
+
+// Teacher-only: permanently removes a student from the room. Unlike
+// setEditingEnabled (which just locks the editor), this deletes the
+// participant outright, so the student is forced back to the join screen and
+// the nickname becomes free again - and, unlike banParticipant below, free
+// to rejoin immediately.
+async function kickParticipant(participantId, teacherId) {
+  logger.info(`Kicking participantId=${participantId}`);
+
+  const { participant, room } = await getOwnedParticipantOrThrow(participantId, teacherId);
 
   broadcastKicked(room.roomCode, participant.id);
   await participantRepository.deleteById(participant.id);
@@ -185,10 +205,35 @@ async function kickParticipant(participantId, teacherId) {
   logger.info(`Participant '${participant.nickname}' kicked from room '${room.roomCode}' by teacher ${teacherId}`);
 }
 
-function broadcastKicked(roomCode, participantId) {
+// Teacher-only: kicks the student like kickParticipant, and additionally
+// blocks that nickname from rejoining this room until BAN_DURATION_HOURS has
+// passed (see roomBan.repository.js and joinRoom's ban check above).
+async function banParticipant(participantId, teacherId) {
+  logger.info(`Banning participantId=${participantId}`);
+
+  const { participant, room } = await getOwnedParticipantOrThrow(participantId, teacherId);
+
+  const bannedUntil = new Date(Date.now() + env.banDurationHours * 60 * 60 * 1000);
+  await roomBanRepository.upsertBan(room._id, participant.nickname, bannedUntil, teacherId);
+
+  broadcastKicked(room.roomCode, participant.id, bannedUntil);
+  await participantRepository.deleteById(participant.id);
+  broadcastParticipantRemoved(room.roomCode, participant.id);
+
+  logger.info(
+    `Participant '${participant.nickname}' banned from room '${room.roomCode}' by teacher ${teacherId} until ${bannedUntil.toISOString()}`
+  );
+
+  return { bannedUntil };
+}
+
+function broadcastKicked(roomCode, participantId, bannedUntil) {
   try {
     const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
-    messagingTemplate.convertAndSend(destination, buildKickedPayload(participantId));
+    messagingTemplate.convertAndSend(
+      destination,
+      buildKickedPayload(participantId, bannedUntil ? bannedUntil.toISOString() : undefined)
+    );
   } catch (err) {
     logger.error('Failed to broadcast kicked:', err);
   }
@@ -211,5 +256,6 @@ module.exports = {
   updateParticipantCode,
   setEditingEnabled,
   kickParticipant,
+  banParticipant,
   getOwnCode,
 };

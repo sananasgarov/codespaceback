@@ -71,4 +71,13 @@ router.patch(
  */
 router.delete('/:participantId', requireAuth, asyncHandler(participantController.kickParticipant));
 
+/**
+ * @openapi
+ * /api/v1/participants/{participantId}/ban:
+ *   post:
+ *     tags: [Participants]
+ *     summary: Kick a student and block their nickname from rejoining this room for BAN_DURATION_HOURS. Teacher must own the participant's room.
+ */
+router.post('/:participantId/ban', requireAuth, asyncHandler(participantController.banParticipant));
+
 module.exports = router;

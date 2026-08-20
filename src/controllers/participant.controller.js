@@ -60,10 +60,23 @@ async function kickParticipant(req, res) {
   );
 }
 
+async function banParticipant(req, res) {
+  logger.info(
+    `API Call: Banning participant ${req.params.participantId} by teacher ${req.teacher.email}`
+  );
+
+  const data = await participantService.banParticipant(req.params.participantId, req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Participant banned from room', data })
+  );
+}
+
 module.exports = {
   joinRoom,
   getRoomParticipants,
   setAccess,
   getOwnCode,
   kickParticipant,
+  banParticipant,
 };

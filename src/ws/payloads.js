@@ -90,8 +90,12 @@ function buildEditingEnabledPayload(participantId, editingEnabled) {
 // buildEditingEnabledPayload - sent when the teacher removes this student
 // from the room. The student client reacts by routing itself out (see
 // student/page.js); there's nothing left to save or unlock at that point.
-function buildKickedPayload(participantId) {
-  return `{"participantId":"${escape(participantId)}","kicked":true}`;
+// `bannedUntil` (ISO string) is only present for a ban (not a plain kick) -
+// see participant.service.js#banParticipant - so the student can be told
+// exactly when they're allowed back instead of just "you got kicked".
+function buildKickedPayload(participantId, bannedUntil) {
+  const bannedField = bannedUntil ? `,"bannedUntil":"${escape(bannedUntil)}"` : '';
+  return `{"participantId":"${escape(participantId)}","kicked":true${bannedField}}`;
 }
 
 // /topic/room/{roomCode}/participants - same channel as buildJoinPayload,
