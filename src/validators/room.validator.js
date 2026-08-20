@@ -34,10 +34,15 @@ const accessRequestSchema = z.object({
   editingEnabled: z.boolean({ required_error: 'editingEnabled must be a boolean' }),
 });
 
+const aiChatRequestSchema = z.object({
+  enabled: z.boolean({ required_error: 'enabled must be a boolean' }),
+});
+
 module.exports = {
   roomRequestSchema,
   pinRequestSchema,
   pauseRequestSchema,
   taskRequestSchema,
   accessRequestSchema,
+  aiChatRequestSchema,
 };

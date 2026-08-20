@@ -67,6 +67,14 @@ const roomSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    // Teacher-controlled switch for the student-facing AI chat widget (see
+    // aiChat.service.js) - defaults on, but a teacher may not want it
+    // available for a given lesson/exam. Enforced server-side in
+    // askAssistant, not just hidden client-side.
+    aiChatEnabled: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     collection: 'rooms',

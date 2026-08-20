@@ -6,6 +6,7 @@ const {
   pinRequestSchema,
   pauseRequestSchema,
   taskRequestSchema,
+  aiChatRequestSchema,
 } = require('../validators/room.validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireActiveAccess } = require('../middleware/access');
@@ -137,6 +138,20 @@ router.patch(
   requireAuth,
   validateBody(taskRequestSchema),
   asyncHandler(roomController.setTask)
+);
+
+/**
+ * @openapi
+ * /api/v1/rooms/{roomCode}/ai-chat:
+ *   patch:
+ *     tags: [Rooms]
+ *     summary: Enable or disable the student-facing AI chat widget for this room
+ */
+router.patch(
+  '/:roomCode/ai-chat',
+  requireAuth,
+  validateBody(aiChatRequestSchema),
+  asyncHandler(roomController.setAiChat)
 );
 
 module.exports = router;

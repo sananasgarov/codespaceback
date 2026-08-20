@@ -78,6 +78,12 @@ function buildTaskPayload(task) {
   return JSON.stringify({ task: task || null });
 }
 
+// Same /status topic - lets an already-open student page show/hide the AI
+// chat widget live instead of only picking up the setting on next load.
+function buildAiChatEnabledPayload(enabled) {
+  return JSON.stringify({ aiChatEnabled: Boolean(enabled) });
+}
+
 // /topic/room/{roomCode}/teacher - the teacher's own live code, i.e. what
 // every student sees by default (unless a student has been pinned - see
 // buildPinnedPayload). Suppressed while the room is paused; see
@@ -140,6 +146,7 @@ module.exports = {
   buildPinnedPayload,
   buildTeacherPausedPayload,
   buildTaskPayload,
+  buildAiChatEnabledPayload,
   buildTeacherCodePayload,
   buildEditingEnabledPayload,
   buildKickedPayload,

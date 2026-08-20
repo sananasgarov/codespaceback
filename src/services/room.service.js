@@ -13,6 +13,7 @@ const {
   buildPinnedPayload,
   buildTeacherPausedPayload,
   buildTaskPayload,
+  buildAiChatEnabledPayload,
   buildTeacherCodePayload,
 } = require('../ws/payloads');
 const logger = require('../utils/logger');
@@ -173,6 +174,22 @@ async function setCurrentTask(roomCode, teacherId, task) {
   return roomMapper.toResponse(room);
 }
 
+// Teacher-controlled on/off switch for the student-facing AI chat widget
+// (see aiChat.service.js#askAssistant, which enforces this server-side too -
+// not just hiding the widget client-side). Broadcast live so an already-open
+// student page reacts immediately instead of only on next load.
+async function setAiChatEnabled(roomCode, teacherId, enabled) {
+  const room = await getOwnedRoomOrThrow(roomCode, teacherId);
+
+  room.aiChatEnabled = enabled;
+  await roomRepository.save(room);
+  logger.info(`Room ${roomCode}: AI chat ${enabled ? 'enabled' : 'disabled'}`);
+
+  broadcastToStatus(roomCode, buildAiChatEnabledPayload(enabled));
+
+  return roomMapper.toResponse(room);
+}
+
 // Called by the /app/room-editor-stream WS handler on every (debounced)
 // keystroke in the teacher's own editor. Always persists so a resume/reload
 // reflects the latest text; only broadcasts live while not paused.
@@ -251,5 +268,6 @@ module.exports = {
   setPinnedParticipant,
   setTeacherPaused,
   setCurrentTask,
+  setAiChatEnabled,
   streamTeacherCode,
 };

@@ -37,4 +37,16 @@ const joinLimiter = rateLimit({
   message: { success: false, message: 'Too many attempts. Please try again later.', data: null },
 });
 
-module.exports = { authLimiter, executionLimiter, joinLimiter };
+// POST /ai/chat is also unauthenticated (students never log in) and, unlike
+// Wandbox, each call is a metered/billed Gemini request - a tighter cap than
+// executionLimiter on purpose, since abuse here costs real money, not just
+// server capacity.
+const aiChatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many chat messages. Please slow down.', data: null },
+});
+
+module.exports = { authLimiter, executionLimiter, joinLimiter, aiChatLimiter };

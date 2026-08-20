@@ -106,6 +106,18 @@ async function setTask(req, res) {
   );
 }
 
+async function setAiChat(req, res) {
+  logger.info(
+    `API Call: ${req.body.enabled ? 'Enable' : 'Disable'} AI chat for room ${req.params.roomCode} by teacher ${req.teacher.email}`
+  );
+
+  const data = await roomService.setAiChatEnabled(req.params.roomCode, req.teacher.id, req.body.enabled);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: `AI chat ${req.body.enabled ? 'enabled' : 'disabled'}`, data })
+  );
+}
+
 async function cleanupEmptyRooms(req, res) {
   logger.info('API Call: Manual cleanup triggered for empty rooms');
 
@@ -132,6 +144,7 @@ module.exports = {
   pinParticipant,
   setPause,
   setTask,
+  setAiChat,
   cleanupEmptyRooms,
   getLanguages,
 };

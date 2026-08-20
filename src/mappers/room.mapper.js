@@ -12,6 +12,7 @@ function toResponse(room) {
     // populated - the frontend already has the participant list separately.
     teacherCode: room.teacherCode || '',
     teacherEditorPaused: Boolean(room.teacherEditorPaused),
+    aiChatEnabled: room.aiChatEnabled !== false,
     pinnedParticipantId: room.pinnedParticipant ? String(room.pinnedParticipant) : null,
     currentTask: room.currentTask
       ? {

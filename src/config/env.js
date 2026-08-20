@@ -65,6 +65,15 @@ const env = {
     priceMinor: toInt(process.env.BILLING_PRICE_MINOR, 999),
     periodDays: toInt(process.env.BILLING_PERIOD_DAYS, 30),
   },
+
+  // Student-facing "ask a question" chat widget (see aiChat.service.js).
+  // Unset key -> the endpoint answers with a clear 503 instead of a
+  // confusing failure; model is env-driven since Google rotates/retires
+  // Gemini model ids every few months (2.0 Flash was shut down mid-2026).
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+    model: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
+  },
 };
 
 module.exports = env;

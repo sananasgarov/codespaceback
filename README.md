@@ -58,6 +58,8 @@ before the server can boot (Atlas dashboard -> Connect -> Drivers).
 | `TRIAL_DAYS` | Free room-creation trial length for a newly registered teacher (default `7`) |
 | `BAN_DURATION_HOURS` | How long a teacher-issued ban keeps a nickname out of the room it was banned from (default `2`) |
 | `ADMIN_KEY` | Shared secret for the internal `/billing/admin/...` and `/rooms/cleanup` endpoints (`x-admin-key` header). Unset = those endpoints are locked entirely |
+| `GEMINI_API_KEY` | Powers the student-facing AI chat widget (`/ai/chat`) - concept explanations only, never code. Unset = the endpoint answers `503` instead of failing silently |
+| `GEMINI_MODEL` | Gemini model id to call (default `gemini-3.7-flash`) |
 | `BILLING_CURRENCY`, `BILLING_PRICE_MINOR`, `BILLING_PERIOD_DAYS` | Placeholder pricing shown by `GET /billing/plan` - no payment gateway is wired up yet, see below |
 
 ### Data model notes (MongoDB vs. the original Postgres/JPA schema)
@@ -102,7 +104,9 @@ replaces this later.
 - `POST   /api/v1/rooms` — 🔒 create a room `{ language }` (`PYTHON` | `JAVA` | `JAVASCRIPT` | `TYPESCRIPT` | `C` | `CPP` | `CSHARP` | `PHP` | `GO` | `SQL`, requires an active trial/subscription)
 - `GET    /api/v1/rooms/mine` — 🔒 rooms owned by the current teacher
 - `GET    /api/v1/rooms/:roomCode` — includes the classroom broadcast state: `teacherCode`, `teacherEditorPaused`,
-  `pinnedParticipantId`, `currentTask` (see "Classroom broadcast model" below)
+  `pinnedParticipantId`, `currentTask`, `aiChatEnabled` (see "Classroom broadcast model" below)
+- `PATCH  /api/v1/rooms/:roomCode/ai-chat` — 🔒 `{ enabled: boolean }` — show/hide the student-facing AI chat
+  widget for this room (see `/ai/chat` below), owning teacher only
 - `DELETE /api/v1/rooms/:roomCode` — 🔒 deactivate (soft, reversible), owning teacher only
 - `PATCH  /api/v1/rooms/:roomCode/activate` — 🔒 reactivate a deactivated room, owning teacher only, requires an active trial/subscription
 - `DELETE /api/v1/rooms/:roomCode/permanent` — 🔒 permanently delete the room and everything in it (participants, execution history, bans) - irreversible, owning teacher only
@@ -120,6 +124,9 @@ replaces this later.
 - `POST   /api/v1/executions/run` — `{ participantId, roomCode, code }`
 - `GET    /api/v1/executions/history/room/:roomCode`
 - `GET    /api/v1/executions/history/participant/:participantId?roomCode=...`
+- `POST   /api/v1/ai/chat` — `{ participantId, roomCode, message, history? }` — student-facing "ask a question"
+  assistant, concept explanations only (instructed and post-filtered to never return code); `503` if
+  `GEMINI_API_KEY` isn't set
 
 🔒 = requires `Authorization: Bearer <token>` from `/auth/login` or `/auth/register`.
 🔑 = requires the `x-admin-key` header (see `ADMIN_KEY` above).
