@@ -6,12 +6,22 @@ const logger = require('../utils/logger');
 // Equivalent of controller/RoomController.java
 
 async function createRoom(req, res) {
-  logger.info(`API Call: Create room request received for language: ${req.body.language}`);
+  logger.info(`API Call: Create room request received for language: ${req.body.language} by teacher ${req.teacher.email}`);
 
-  const data = await roomService.createRoom(req.body);
+  const data = await roomService.createRoom(req.body, req.teacher.id);
 
   res.status(201).json(
     apiResponse({ success: true, message: 'Room created successfully', data })
+  );
+}
+
+async function getMyRooms(req, res) {
+  logger.info(`API Call: Fetching rooms for teacher ${req.teacher.email}`);
+
+  const data = await roomService.getRoomsByTeacher(req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Rooms fetched successfully', data })
   );
 }
 
@@ -26,9 +36,9 @@ async function getRoom(req, res) {
 }
 
 async function deactivateRoom(req, res) {
-  logger.warn(`API Call: Deactivating room with code: ${req.params.roomCode}`);
+  logger.warn(`API Call: Deactivating room with code: ${req.params.roomCode} by teacher ${req.teacher.email}`);
 
-  await roomService.deleteRoom(req.params.roomCode);
+  await roomService.deleteRoom(req.params.roomCode, req.teacher.id);
 
   res.status(200).json(
     apiResponse({ success: true, message: 'Room has been deactivated' })
@@ -54,6 +64,7 @@ function getLanguages(req, res) {
 module.exports = {
   createRoom,
   getRoom,
+  getMyRooms,
   deactivateRoom,
   cleanupEmptyRooms,
   getLanguages,

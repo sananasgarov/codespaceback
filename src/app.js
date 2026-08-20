@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const swaggerUi = require('swagger-ui-express');
 
@@ -14,8 +15,14 @@ const errorHandler = require('./middleware/errorHandler');
 // exception handler as the last middleware in the chain.
 const app = express();
 
+// Standard secure headers (X-Content-Type-Options, HSTS, etc). CSP is left
+// off the default config since this is a pure JSON API with a Swagger UI
+// page, not something rendering untrusted HTML.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors(corsOptions));
-app.use(express.json());
+// Bound the request body size - this is a small JSON API, nothing here
+// legitimately needs a multi-megabyte payload.
+app.use(express.json({ limit: '100kb' }));
 app.use(morgan('dev'));
 
 app.use('/v3/api-docs', (req, res) => res.json(swaggerSpec));

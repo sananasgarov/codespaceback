@@ -9,4 +9,8 @@ function toResponse(room) {
   };
 }
 
-module.exports = { toResponse };
+function toResponseList(rooms) {
+  return rooms.map((room) => toResponse(room));
+}
+
+module.exports = { toResponse, toResponseList };

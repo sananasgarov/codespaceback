@@ -14,7 +14,10 @@ const swaggerSpec = swaggerJsdoc({
     },
     servers: [{ url: `http://localhost:${env.port}` }],
   },
-  apis: [path.join(__dirname, 'routes', '*.js')],
+  // swagger-jsdoc's internal glob matching only understands forward slashes,
+  // so path.join's backslashes on Windows silently made this match nothing
+  // (pre-existing - not related to any route added here).
+  apis: [path.join(__dirname, 'routes', '*.js').split(path.sep).join('/')],
 });
 
 module.exports = swaggerSpec;

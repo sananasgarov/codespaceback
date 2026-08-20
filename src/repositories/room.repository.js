@@ -17,6 +17,10 @@ async function findEmptyRoomsByStatus(status) {
   return Room.find({ status, _id: { $nin: roomIdsWithParticipants } });
 }
 
+function findByTeacher(teacherId) {
+  return Room.find({ teacher: teacherId }).sort({ createdAt: -1 });
+}
+
 function save(room) {
   return room.save();
 }
@@ -33,6 +37,7 @@ module.exports = {
   findByRoomCode,
   existsByRoomCode,
   findEmptyRoomsByStatus,
+  findByTeacher,
   save,
   saveAll,
   create,

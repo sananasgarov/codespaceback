@@ -16,7 +16,7 @@ function errorHandler(err, req, res, next) {
   if (err instanceof AppError) {
     logger.warn(`${err.name}: ${err.message}`);
     return res.status(err.statusCode).json(
-      apiResponse({ success: false, message: err.message })
+      apiResponse({ success: false, message: err.message, data: err.data })
     );
   }
 

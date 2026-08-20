@@ -2,18 +2,25 @@ const roomRepository = require('../repositories/room.repository');
 const roomMapper = require('../mappers/room.mapper');
 const RoomStatus = require('../enums/roomStatus');
 const RoomNotFoundException = require('../errors/RoomNotFoundException');
+const ForbiddenException = require('../errors/ForbiddenException');
 const logger = require('../utils/logger');
 
 // Equivalent of service/RoomService.java
 
-async function createRoom(request) {
-  logger.info(`Request received to create a new room for language: ${request.language}`);
+async function createRoom(request, teacherId) {
+  logger.info(`Request received to create a new room for language: ${request.language} (teacher=${teacherId})`);
 
   const roomCode = await generateUniqueRoomCode();
-  const room = await roomRepository.create({ language: request.language, roomCode });
+  const room = await roomRepository.create({ language: request.language, roomCode, teacher: teacherId });
 
   logger.info(`Room created successfully with code: ${roomCode}`);
   return roomMapper.toResponse(room);
+}
+
+async function getRoomsByTeacher(teacherId) {
+  logger.info(`Fetching rooms owned by teacher: ${teacherId}`);
+  const rooms = await roomRepository.findByTeacher(teacherId);
+  return roomMapper.toResponseList(rooms);
 }
 
 async function getRoomByCode(roomCode) {
@@ -28,13 +35,21 @@ async function getRoomByCode(roomCode) {
   return roomMapper.toResponse(room);
 }
 
-async function deleteRoom(roomCode) {
+async function deleteRoom(roomCode, teacherId) {
   logger.warn(`Request to deactivate room with code: ${roomCode}`);
 
   const room = await roomRepository.findByRoomCode(roomCode);
   if (!room) {
     logger.error(`Failed to deactivate: Room not found with code: ${roomCode}`);
     throw new RoomNotFoundException(roomCode);
+  }
+
+  // Only the owning teacher may deactivate their own room. Rooms created
+  // before ownership tracking existed (teacher === null) can't be claimed
+  // this way either - they're simply not deactivatable through this route.
+  if (!room.teacher || String(room.teacher) !== String(teacherId)) {
+    logger.warn(`Forbidden: teacher ${teacherId} attempted to deactivate room ${roomCode} they do not own`);
+    throw new ForbiddenException('You can only deactivate rooms you created');
   }
 
   room.status = RoomStatus.PASSIVE;
@@ -79,6 +94,7 @@ async function deactivateEmptyRooms() {
 module.exports = {
   createRoom,
   getRoomByCode,
+  getRoomsByTeacher,
   deleteRoom,
   deactivateEmptyRooms,
 };

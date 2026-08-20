@@ -19,6 +19,16 @@ const roomSchema = new Schema(
       enum: Object.values(RoomStatus),
       default: RoomStatus.ACTIVE,
     },
+    // The teacher who owns this room - required for every newly created room
+    // (set from the authenticated req.teacher, never from client input) so
+    // ownership can be enforced on deactivate and rooms can be listed per
+    // teacher. Left non-required at the schema level only so any rooms that
+    // pre-date this field don't fail validation on read.
+    teacher: {
+      type: Schema.Types.ObjectId,
+      ref: 'Teacher',
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -30,6 +40,8 @@ const roomSchema = new Schema(
     toObject: { virtuals: true },
   }
 );
+
+roomSchema.index({ teacher: 1, createdAt: -1 });
 
 // Mirrors @PrePersist onCreate() in RoomEntity.java
 roomSchema.pre('save', function onCreate(next) {
