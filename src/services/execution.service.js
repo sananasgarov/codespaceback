@@ -8,6 +8,7 @@ const { buildExecutionResultPayload } = require('../ws/payloads');
 const Language = require('../enums/language');
 const ParticipantNotFoundException = require('../errors/ParticipantNotFoundException');
 const RoomNotFoundException = require('../errors/RoomNotFoundException');
+const ForbiddenException = require('../errors/ForbiddenException');
 const logger = require('../utils/logger');
 
 // Equivalent of service/ExecutionService.java
@@ -71,6 +72,43 @@ async function executeCode(request) {
   return response;
 }
 
+// Runs code from the teacher's own "class" editor (Sinif redaktoru). Unlike
+// executeCode above, there's no Participant behind the teacher's code - it
+// lives on the Room document itself (room.teacherCode, streamed over
+// /app/room-editor-stream) - so this just executes and returns the result
+// without touching participantRepository or executionLogRepository. The
+// teacher keeps typing in the same editor afterwards; nothing here clears it.
+async function executeTeacherCode({ roomCode, code, teacherId }) {
+  logger.info(`Executing teacher's own code in room ${roomCode}`);
+
+  const room = await roomRepository.findByRoomCode(roomCode);
+  if (!room) {
+    throw new RoomNotFoundException(roomCode);
+  }
+  if (!room.teacher || String(room.teacher) !== String(teacherId)) {
+    logger.warn(`Forbidden: teacher ${teacherId} attempted to run code in room ${roomCode} they do not own`);
+    throw new ForbiddenException('You can only run code in rooms you created');
+  }
+
+  const language = room.language || Language.PYTHON;
+  const runResult = await codeRunner.runCode(code, language);
+
+  const output = runResult.startsWith('Error:') ? null : runResult;
+  const errorLog = runResult.startsWith('Error:') ? runResult : null;
+  if (errorLog) {
+    logger.warn(`Teacher execution error in room ${roomCode}: ${errorLog}`);
+  }
+
+  return {
+    id: null,
+    nickname: 'Müəllim',
+    codeSnapshot: code,
+    output,
+    errorLog,
+    executedAt: new Date().toISOString(),
+  };
+}
+
 async function getRoomHistory(roomCode) {
   logger.info(`Fetching execution history for room: ${roomCode}`);
   const logs = await executionLogRepository.findAllByRoomCodeOrderByExecutedAtDesc(roomCode);
@@ -98,6 +136,7 @@ function broadcastExecutionResult(roomCode, participantId, response) {
 
 module.exports = {
   executeCode,
+  executeTeacherCode,
   getRoomHistory,
   getParticipantHistory,
 };

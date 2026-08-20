@@ -9,6 +9,15 @@ async function runCode(req, res) {
   res.status(200).json(data);
 }
 
+async function runTeacherCode(req, res) {
+  const data = await executionService.executeTeacherCode({
+    roomCode: req.body.roomCode,
+    code: req.body.code,
+    teacherId: req.teacher.id,
+  });
+  res.status(200).json(data);
+}
+
 async function getRoomHistory(req, res) {
   const data = await executionService.getRoomHistory(req.params.roomCode);
   res.status(200).json(data);
@@ -21,6 +30,7 @@ async function getParticipantHistory(req, res) {
 
 module.exports = {
   runCode,
+  runTeacherCode,
   getRoomHistory,
   getParticipantHistory,
 };

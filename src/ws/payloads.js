@@ -86,6 +86,21 @@ function buildEditingEnabledPayload(participantId, editingEnabled) {
   return JSON.stringify({ participantId, editingEnabled: Boolean(editingEnabled) });
 }
 
+// Same /edit topic as buildCodePayload/buildEditLockPayload/
+// buildEditingEnabledPayload - sent when the teacher removes this student
+// from the room. The student client reacts by routing itself out (see
+// student/page.js); there's nothing left to save or unlock at that point.
+function buildKickedPayload(participantId) {
+  return `{"participantId":"${escape(participantId)}","kicked":true}`;
+}
+
+// /topic/room/{roomCode}/participants - same channel as buildJoinPayload,
+// but marked "removed" so the teacher dashboard can drop the row instead of
+// waiting for a stale presence timeout.
+function buildParticipantRemovedPayload(participantId) {
+  return `{"participantId":"${escape(participantId)}","removed":true}`;
+}
+
 function buildExecutionResultPayload(participantId, response) {
   const result = response.errorLog != null ? response.errorLog : response.output;
   const success = response.errorLog == null;
@@ -115,4 +130,6 @@ module.exports = {
   buildTaskPayload,
   buildTeacherCodePayload,
   buildEditingEnabledPayload,
+  buildKickedPayload,
+  buildParticipantRemovedPayload,
 };

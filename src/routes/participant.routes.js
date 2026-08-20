@@ -47,4 +47,13 @@ router.patch(
   asyncHandler(participantController.setAccess)
 );
 
+/**
+ * @openapi
+ * /api/v1/participants/{participantId}:
+ *   delete:
+ *     tags: [Participants]
+ *     summary: Kick a student out of the room. Teacher must own the participant's room.
+ */
+router.delete('/:participantId', requireAuth, asyncHandler(participantController.kickParticipant));
+
 module.exports = router;

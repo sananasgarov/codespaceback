@@ -1,8 +1,9 @@
 const { Router } = require('express');
 const executionController = require('../controllers/execution.controller');
 const { validateBody } = require('../middleware/validate');
-const { executionRequestSchema } = require('../validators/execution.validator');
+const { executionRequestSchema, teacherExecutionRequestSchema } = require('../validators/execution.validator');
 const { executionLimiter } = require('../middleware/rateLimit');
+const { requireAuth } = require('../middleware/auth');
 const asyncHandler = require('../utils/asyncHandler');
 
 // Equivalent of controller/ExecutionController.java (@RequestMapping("/api/v1/executions"))
@@ -20,6 +21,21 @@ router.post(
   executionLimiter,
   validateBody(executionRequestSchema),
   asyncHandler(executionController.runCode)
+);
+
+/**
+ * @openapi
+ * /api/v1/executions/run-teacher:
+ *   post:
+ *     tags: [Executions]
+ *     summary: Compile and run the teacher's own "class" editor code. Owner-only, not persisted to execution history.
+ */
+router.post(
+  '/run-teacher',
+  requireAuth,
+  executionLimiter,
+  validateBody(teacherExecutionRequestSchema),
+  asyncHandler(executionController.runTeacherCode)
 );
 
 /**

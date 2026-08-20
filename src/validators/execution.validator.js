@@ -16,4 +16,16 @@ const executionRequestSchema = z.object({
     .min(1, 'Code cannot be empty'),
 });
 
-module.exports = { executionRequestSchema };
+// Equivalent request shape for the teacher's own "class" editor - no
+// participantId, since that code never belongs to a Participant document.
+const teacherExecutionRequestSchema = z.object({
+  roomCode: z
+    .string({ required_error: 'Room code is required' })
+    .trim()
+    .min(1, 'Room code is required'),
+  code: z
+    .string({ required_error: 'Code cannot be empty' })
+    .min(1, 'Code cannot be empty'),
+});
+
+module.exports = { executionRequestSchema, teacherExecutionRequestSchema };

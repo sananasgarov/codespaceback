@@ -40,8 +40,21 @@ async function setAccess(req, res) {
   );
 }
 
+async function kickParticipant(req, res) {
+  logger.info(
+    `API Call: Kicking participant ${req.params.participantId} by teacher ${req.teacher.email}`
+  );
+
+  await participantService.kickParticipant(req.params.participantId, req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Participant removed from room', data: null })
+  );
+}
+
 module.exports = {
   joinRoom,
   getRoomParticipants,
   setAccess,
+  kickParticipant,
 };

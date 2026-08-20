@@ -41,6 +41,11 @@ function create(data) {
   return Participant.create(data);
 }
 
+function deleteById(id) {
+  if (!isValidObjectId(id)) return null;
+  return Participant.findByIdAndDelete(id);
+}
+
 module.exports = {
   findAllByRoomCode,
   findByNicknameAndRoomCode,
@@ -48,4 +53,5 @@ module.exports = {
   findById,
   save,
   create,
+  deleteById,
 };

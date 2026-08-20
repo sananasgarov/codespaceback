@@ -9,7 +9,12 @@ const NicknameAlreadyTakenException = require('../errors/NicknameAlreadyTakenExc
 const ParticipantNotFoundException = require('../errors/ParticipantNotFoundException');
 const ForbiddenException = require('../errors/ForbiddenException');
 const messagingTemplate = require('../ws/messagingTemplate');
-const { buildJoinPayload, buildEditingEnabledPayload } = require('../ws/payloads');
+const {
+  buildJoinPayload,
+  buildEditingEnabledPayload,
+  buildKickedPayload,
+  buildParticipantRemovedPayload,
+} = require('../ws/payloads');
 const logger = require('../utils/logger');
 
 // Equivalent of service/ParticipantService.java
@@ -137,9 +142,57 @@ function broadcastEditingEnabled(roomCode, participantId, editingEnabled) {
   }
 }
 
+// Teacher-only: permanently removes a student from the room. Unlike
+// setEditingEnabled (which just locks the editor), this deletes the
+// participant outright, so the student is forced back to the join screen and
+// the nickname becomes free again.
+async function kickParticipant(participantId, teacherId) {
+  logger.info(`Kicking participantId=${participantId}`);
+
+  const participant = await participantRepository.findById(participantId);
+  if (!participant || !participant.room) {
+    throw new ParticipantNotFoundException(participantId);
+  }
+
+  const room = await roomRepository.findByRoomCode(participant.room.roomCode);
+  if (!room || !room.teacher || String(room.teacher) !== String(teacherId)) {
+    logger.warn(
+      `Forbidden: teacher ${teacherId} attempted to kick participant ${participantId} from a room they do not own`
+    );
+    throw new ForbiddenException('You can only manage participants in rooms you created');
+  }
+
+  broadcastKicked(room.roomCode, participant.id);
+  await participantRepository.deleteById(participant.id);
+  broadcastParticipantRemoved(room.roomCode, participant.id);
+
+  logger.info(`Participant '${participant.nickname}' kicked from room '${room.roomCode}' by teacher ${teacherId}`);
+}
+
+function broadcastKicked(roomCode, participantId) {
+  try {
+    const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
+    messagingTemplate.convertAndSend(destination, buildKickedPayload(participantId));
+  } catch (err) {
+    logger.error('Failed to broadcast kicked:', err);
+  }
+}
+
+function broadcastParticipantRemoved(roomCode, participantId) {
+  try {
+    messagingTemplate.convertAndSend(
+      `/topic/room/${roomCode}/participants`,
+      buildParticipantRemovedPayload(participantId)
+    );
+  } catch (err) {
+    logger.error('Failed to broadcast participant removed:', err);
+  }
+}
+
 module.exports = {
   joinRoom,
   getParticipantsByRoom,
   updateParticipantCode,
   setEditingEnabled,
+  kickParticipant,
 };
