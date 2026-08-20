@@ -25,6 +25,16 @@ async function executeCode(request) {
     throw new RoomNotFoundException(request.roomCode);
   }
 
+  // A participant only exists inside the room they joined - reject any
+  // request pairing a real participantId with a roomCode it doesn't belong
+  // to. Without this, anyone who learns another participant's id could run
+  // code "as" them into a different room: overwriting their saved
+  // currentCode and broadcasting into that other room's execution feed.
+  if (!participant.room || participant.room.roomCode !== request.roomCode) {
+    logger.warn(`Execution rejected: participant ${request.participantId} does not belong to room ${request.roomCode}`);
+    throw new ParticipantNotFoundException(request.participantId);
+  }
+
   const language = room.language || Language.PYTHON;
 
   let output = null;
@@ -76,12 +86,6 @@ async function getParticipantHistory(participantId, roomCode) {
   return executionMapper.toResponseList(logs);
 }
 
-async function getRecentActivity(roomCode) {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const logs = await executionLogRepository.findAllByRoomCodeAndExecutedAtAfter(roomCode, oneHourAgo);
-  return executionMapper.toResponseList(logs);
-}
-
 function broadcastExecutionResult(roomCode, participantId, response) {
   try {
     const destination = `/topic/room/${roomCode}/executions`;
@@ -96,5 +100,4 @@ module.exports = {
   executeCode,
   getRoomHistory,
   getParticipantHistory,
-  getRecentActivity,
 };

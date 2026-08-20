@@ -13,4 +13,28 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Too many attempts. Please try again later.', data: null },
 });
 
-module.exports = { authLimiter };
+// POST /executions/run has no auth at all (students never log in) and each
+// call pays for a request to a free third-party API (Wandbox - see
+// codeRunner.service.js). Without a cap, one IP could keep the execution
+// queue permanently full (locks out every other room) or get our server's
+// IP rate-limited/banned by Wandbox. 20/min is generous for a real student
+// running/testing code, not for a script.
+const executionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many run requests. Please slow down.', data: null },
+});
+
+// POST /participants/join is also unauthenticated - loose cap against
+// scripted room-flooding/nickname-squatting.
+const joinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts. Please try again later.', data: null },
+});
+
+module.exports = { authLimiter, executionLimiter, joinLimiter };

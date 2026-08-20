@@ -19,20 +19,18 @@ async function findByNicknameAndRoomCode(nickname, roomCode) {
   return Participant.findOne({ nickname, room: room._id });
 }
 
-async function existsByRoomCodeAndRole(roomCode, role) {
-  const room = await roomRepository.findByRoomCode(roomCode);
-  if (!room) return false;
-  const count = await Participant.countDocuments({ role, room: room._id });
-  return count > 0;
-}
-
 function findBySessionId(sessionId) {
   return Participant.findOne({ sessionId }).populate('room', 'roomCode');
 }
 
+// room is populated (just roomCode, not the whole document) so callers can
+// cheaply verify a participant actually belongs to the roomCode a request
+// claims, without a second query - see execution.service.js and
+// ws/handlers/codeStream.handler.js, both of which use this to reject a
+// participantId/roomCode pairing that doesn't match (cross-room spoofing).
 function findById(id) {
   if (!isValidObjectId(id)) return null;
-  return Participant.findById(id);
+  return Participant.findById(id).populate('room', 'roomCode');
 }
 
 function save(participant) {
@@ -46,7 +44,6 @@ function create(data) {
 module.exports = {
   findAllByRoomCode,
   findByNicknameAndRoomCode,
-  existsByRoomCodeAndRole,
   findBySessionId,
   findById,
   save,

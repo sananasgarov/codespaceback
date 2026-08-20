@@ -15,6 +15,14 @@ const errorHandler = require('./middleware/errorHandler');
 // exception handler as the last middleware in the chain.
 const app = express();
 
+// Trust exactly one hop of X-Forwarded-For (the platform's own reverse
+// proxy - Render/Vercel/etc, see README). Needed for express-rate-limit
+// (middleware/rateLimit.js) to key off each real client IP instead of the
+// proxy's IP for everyone; deliberately not `true` (unlimited hops), which
+// would let a client spoof its own IP via the header. No-op locally, where
+// there's no proxy in front and the header is simply absent.
+app.set('trust proxy', 1);
+
 // Standard secure headers (X-Content-Type-Options, HSTS, etc). CSP is left
 // off the default config since this is a pure JSON API with a Swagger UI
 // page, not something rendering untrusted HTML.

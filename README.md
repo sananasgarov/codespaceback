@@ -53,6 +53,11 @@ before the server can boot (Atlas dashboard -> Connect -> Drivers).
 | `DB_LOGGING` | `true` = log every Mongoose query |
 | `WS_PATH` | SockJS endpoint path (default `/ws-devroom`, matches the Java app) |
 | `EXEC_*` | Limits around the `/executions/run` endpoint's call to Wandbox (see below) |
+| `JWT_SECRET` | Signs teacher auth tokens - **required**, the app refuses to boot without it (see `src/utils/jwt.js`) |
+| `JWT_EXPIRES_IN` | Teacher token lifetime (default `7d`) |
+| `TRIAL_DAYS` | Free room-creation trial length for a newly registered teacher (default `7`) |
+| `ADMIN_KEY` | Shared secret for the internal `/billing/admin/...` and `/rooms/cleanup` endpoints (`x-admin-key` header). Unset = those endpoints are locked entirely |
+| `BILLING_CURRENCY`, `BILLING_PRICE_MINOR`, `BILLING_PERIOD_DAYS` | Placeholder pricing shown by `GET /billing/plan` - no payment gateway is wired up yet, see below |
 
 ### Data model notes (MongoDB vs. the original Postgres/JPA schema)
 
@@ -84,18 +89,29 @@ instead of a container; `EXEC_MEMORY_LIMIT_MB` is unused (Wandbox sandboxes
 its own memory limits) but left in `.env` in case a self-hosted runner
 replaces this later.
 
-## REST API (unchanged from the Java app)
+## REST API
 
-- `POST   /api/v1/rooms` — create a room `{ language: "PYTHON" | "JAVA" }`
+- `POST   /api/v1/auth/register` — `{ name, email, password }`, starts the teacher's free trial
+- `POST   /api/v1/auth/login` — `{ email, password }`
+- `GET    /api/v1/auth/me` — 🔒 current teacher's profile + trial/subscription status
+- `GET    /api/v1/billing/plan` — current placeholder pricing (payments not active yet)
+- `GET    /api/v1/billing/status` — 🔒 trial/subscription status
+- `POST   /api/v1/billing/subscribe` — 🔒 always `503`, no payment gateway wired up yet
+- `POST   /api/v1/billing/admin/teachers/:teacherId/grant` — 🔑 admin-only, manually activates a subscription
+- `POST   /api/v1/rooms` — 🔒 create a room `{ language: "PYTHON" | "JAVA" }` (requires an active trial/subscription)
+- `GET    /api/v1/rooms/mine` — 🔒 rooms owned by the current teacher
 - `GET    /api/v1/rooms/:roomCode`
-- `DELETE /api/v1/rooms/:roomCode` — deactivate
-- `PATCH  /api/v1/rooms/cleanup` — deactivate empty active rooms
+- `DELETE /api/v1/rooms/:roomCode` — 🔒 deactivate, owning teacher only
+- `PATCH  /api/v1/rooms/cleanup` — 🔑 admin-only, deactivate empty active rooms
 - `GET    /api/v1/rooms/languages`
-- `POST   /api/v1/participants/join` — `{ roomCode, nickname }`
+- `POST   /api/v1/participants/join` — `{ roomCode, nickname }`, no account needed (students never log in)
 - `GET    /api/v1/participants/room/:roomCode`
 - `POST   /api/v1/executions/run` — `{ participantId, roomCode, code }`
 - `GET    /api/v1/executions/history/room/:roomCode`
 - `GET    /api/v1/executions/history/participant/:participantId?roomCode=...`
+
+🔒 = requires `Authorization: Bearer <token>` from `/auth/login` or `/auth/register`.
+🔑 = requires the `x-admin-key` header (see `ADMIN_KEY` above).
 
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 

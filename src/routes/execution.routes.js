@@ -2,6 +2,7 @@ const { Router } = require('express');
 const executionController = require('../controllers/execution.controller');
 const { validateBody } = require('../middleware/validate');
 const { executionRequestSchema } = require('../validators/execution.validator');
+const { executionLimiter } = require('../middleware/rateLimit');
 const asyncHandler = require('../utils/asyncHandler');
 
 // Equivalent of controller/ExecutionController.java (@RequestMapping("/api/v1/executions"))
@@ -12,9 +13,14 @@ const router = Router();
  * /api/v1/executions/run:
  *   post:
  *     tags: [Executions]
- *     summary: Run code in a sandboxed Docker container
+ *     summary: Compile and run code via the Wandbox API, sandboxed on their end (no local Docker involved)
  */
-router.post('/run', validateBody(executionRequestSchema), asyncHandler(executionController.runCode));
+router.post(
+  '/run',
+  executionLimiter,
+  validateBody(executionRequestSchema),
+  asyncHandler(executionController.runCode)
+);
 
 /**
  * @openapi

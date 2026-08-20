@@ -75,11 +75,19 @@ async function getParticipantsByRoom(roomCode) {
   return participantMapper.toResponseList(participants);
 }
 
-async function updateParticipantCode(participantId, code) {
+async function updateParticipantCode(participantId, code, roomCode) {
   logger.info(`Updating code for participantId=${participantId}`);
 
   const participant = await participantRepository.findById(participantId);
   if (!participant) {
+    throw new ParticipantNotFoundException(participantId);
+  }
+
+  // Reject a save aimed at a participant who isn't actually in roomCode -
+  // otherwise a client could overwrite a stranger's saved code just by
+  // guessing/observing their participantId.
+  if (!participant.room || participant.room.roomCode !== roomCode) {
+    logger.warn(`Rejected code update: participant ${participantId} does not belong to room ${roomCode}`);
     throw new ParticipantNotFoundException(participantId);
   }
 

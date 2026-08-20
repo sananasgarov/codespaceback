@@ -4,6 +4,15 @@ const messagingTemplate = require('../messagingTemplate');
 const { buildStatusPayload, buildCodePayload, buildEditLockPayload, buildExecutionPayload } = require('../payloads');
 const logger = require('../../utils/logger');
 
+// The STOMP/SockJS layer has no per-connection auth at all (any client can
+// connect and SEND to any destination) - this at least stops the cheapest
+// spoof: claiming a roomCode that doesn't match the participantId's real
+// room. participantRepository.findById() populates `room` (see
+// participant.repository.js) so this is a pure in-memory check, no extra query.
+function belongsToRoom(participant, roomCode) {
+  return Boolean(participant && participant.room && participant.room.roomCode === roomCode);
+}
+
 // Equivalent of controller/CodeStreamController.java (@MessageMapping handlers)
 function registerCodeStreamHandlers(stompServer) {
   // @MessageMapping("/stream/{roomCode}/{participantId}")
@@ -13,20 +22,23 @@ function registerCodeStreamHandlers(stompServer) {
     const codeContent = body;
 
     const participant = await participantRepository.findById(participantId);
-    if (participant) {
-      participant.currentCode = codeContent;
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Stream rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
+
+    participant.currentCode = codeContent;
+    await participantRepository.save(participant);
+
+    if (!participant.sessionId || participant.sessionId !== sessionId) {
+      participant.sessionId = sessionId;
       await participantRepository.save(participant);
+      logger.info(`SessionId set for participant '${participant.nickname}': ${sessionId}`);
 
-      if (!participant.sessionId || participant.sessionId !== sessionId) {
-        participant.sessionId = sessionId;
-        await participantRepository.save(participant);
-        logger.info(`SessionId set for participant '${participant.nickname}': ${sessionId}`);
-
-        messagingTemplate.convertAndSend(
-          `/topic/room/${roomCode}/participants`,
-          buildStatusPayload(participantId, participant.nickname, true)
-        );
-      }
+      messagingTemplate.convertAndSend(
+        `/topic/room/${roomCode}/participants`,
+        buildStatusPayload(participantId, participant.nickname, true)
+      );
     }
 
     const destination = `/topic/room/${roomCode}/participant/${participantId}`;
@@ -41,8 +53,8 @@ function registerCodeStreamHandlers(stompServer) {
     const participantId = params.participantId;
 
     const participant = await participantRepository.findById(participantId);
-    if (!participant) {
-      logger.warn(`Watch request: participant not found, id=${participantId}`);
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Watch rejected: participant ${participantId} does not belong to room ${roomCode}`);
       return;
     }
 
@@ -61,7 +73,10 @@ function registerCodeStreamHandlers(stompServer) {
     const participantId = params.participantId;
     const editedCode = body;
 
-    await participantService.updateParticipantCode(participantId, editedCode);
+    // updateParticipantCode itself verifies participant.room === roomCode
+    // and throws if not - the top-level frame dispatcher (stompServer.js
+    // _routeSend) logs and swallows it, so a mismatch just drops the message.
+    await participantService.updateParticipantCode(participantId, editedCode, roomCode);
 
     const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
     messagingTemplate.convertAndSend(destination, buildCodePayload(participantId, '', editedCode));
@@ -73,10 +88,16 @@ function registerCodeStreamHandlers(stompServer) {
   // contract. Sent the instant a teacher opens or cancels edit mode, so the
   // student's editor can lock/unlock before any code has actually changed
   // (the /app/edit handler above only fires once, on save).
-  stompServer.onAppDestination('/app/edit-lock/:roomCode/:participantId', ({ params, body }) => {
+  stompServer.onAppDestination('/app/edit-lock/:roomCode/:participantId', async ({ params, body }) => {
     const roomCode = params.roomCode;
     const participantId = params.participantId;
     const locked = body === 'true';
+
+    const participant = await participantRepository.findById(participantId);
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Edit-lock rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
 
     const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
     messagingTemplate.convertAndSend(destination, buildEditLockPayload(participantId, locked));
@@ -85,10 +106,16 @@ function registerCodeStreamHandlers(stompServer) {
   });
 
   // @MessageMapping("/execution/{roomCode}/{participantId}")
-  stompServer.onAppDestination('/app/execution/:roomCode/:participantId', ({ params, body }) => {
+  stompServer.onAppDestination('/app/execution/:roomCode/:participantId', async ({ params, body }) => {
     const roomCode = params.roomCode;
     const participantId = params.participantId;
     const executionResult = body;
+
+    const participant = await participantRepository.findById(participantId);
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Execution broadcast rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
 
     const destination = `/topic/room/${roomCode}/executions`;
     messagingTemplate.convertAndSend(destination, buildExecutionPayload(participantId, executionResult));
