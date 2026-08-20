@@ -25,8 +25,15 @@ function create(data) {
   return ExecutionLog.create(data);
 }
 
+// Used by room.service.js#deleteRoomPermanently - a hard room delete also
+// wipes its run history instead of leaving orphaned logs behind.
+function deleteAllByRoom(roomId) {
+  return ExecutionLog.deleteMany({ room: roomId });
+}
+
 module.exports = {
   findAllByRoomCodeOrderByExecutedAtDesc,
   findAllByParticipantIdAndRoomCodeOrderByExecutedAtDesc,
   create,
+  deleteAllByRoom,
 };

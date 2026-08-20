@@ -24,4 +24,11 @@ function upsertBan(roomId, nickname, bannedUntil, bannedBy) {
   );
 }
 
-module.exports = { findActiveBan, upsertBan };
+// Used by room.service.js#deleteRoomPermanently - a hard room delete also
+// clears any bans issued in it (a re-created room reusing the same code
+// down the line shouldn't inherit them).
+function deleteAllByRoom(roomId) {
+  return RoomBan.deleteMany({ room: roomId });
+}
+
+module.exports = { findActiveBan, upsertBan, deleteAllByRoom };

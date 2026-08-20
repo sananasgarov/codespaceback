@@ -46,6 +46,13 @@ function deleteById(id) {
   return Participant.findByIdAndDelete(id);
 }
 
+// Used by room.service.js#deleteRoomPermanently - a hard room delete has to
+// take every participant it ever had with it, not just whoever's still
+// connected.
+function deleteAllByRoom(roomId) {
+  return Participant.deleteMany({ room: roomId });
+}
+
 module.exports = {
   findAllByRoomCode,
   findByNicknameAndRoomCode,
@@ -54,4 +61,5 @@ module.exports = {
   save,
   create,
   deleteById,
+  deleteAllByRoom,
 };

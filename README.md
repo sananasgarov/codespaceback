@@ -103,7 +103,9 @@ replaces this later.
 - `GET    /api/v1/rooms/mine` — 🔒 rooms owned by the current teacher
 - `GET    /api/v1/rooms/:roomCode` — includes the classroom broadcast state: `teacherCode`, `teacherEditorPaused`,
   `pinnedParticipantId`, `currentTask` (see "Classroom broadcast model" below)
-- `DELETE /api/v1/rooms/:roomCode` — 🔒 deactivate, owning teacher only
+- `DELETE /api/v1/rooms/:roomCode` — 🔒 deactivate (soft, reversible), owning teacher only
+- `PATCH  /api/v1/rooms/:roomCode/activate` — 🔒 reactivate a deactivated room, owning teacher only, requires an active trial/subscription
+- `DELETE /api/v1/rooms/:roomCode/permanent` — 🔒 permanently delete the room and everything in it (participants, execution history, bans) - irreversible, owning teacher only
 - `PATCH  /api/v1/rooms/:roomCode/pin` — 🔒 `{ participantId }` (string id, or `null` to unpin back to the
   teacher's own editor) — owning teacher only
 - `PATCH  /api/v1/rooms/:roomCode/pause` — 🔒 `{ paused: boolean }` — owning teacher only

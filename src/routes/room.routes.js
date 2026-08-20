@@ -72,6 +72,33 @@ router.delete('/:roomCode', requireAuth, asyncHandler(roomController.deactivateR
 
 /**
  * @openapi
+ * /api/v1/rooms/{roomCode}/activate:
+ *   patch:
+ *     tags: [Rooms]
+ *     summary: Reactivate a previously deactivated room (only the owning teacher, requires an active trial/subscription)
+ */
+router.patch(
+  '/:roomCode/activate',
+  requireAuth,
+  requireActiveAccess,
+  asyncHandler(roomController.activateRoom)
+);
+
+/**
+ * @openapi
+ * /api/v1/rooms/{roomCode}/permanent:
+ *   delete:
+ *     tags: [Rooms]
+ *     summary: Permanently delete a room and everything in it (participants, execution history, bans) - irreversible, only the owning teacher may do this
+ */
+router.delete(
+  '/:roomCode/permanent',
+  requireAuth,
+  asyncHandler(roomController.deleteRoomPermanently)
+);
+
+/**
+ * @openapi
  * /api/v1/rooms/{roomCode}/pin:
  *   patch:
  *     tags: [Rooms]

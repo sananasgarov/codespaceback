@@ -17,6 +17,14 @@ function buildJoinPayload(participantId, nickname, role) {
   return `{"participantId":"${escape(participantId)}","nickname":"${escape(nickname)}","role":"${escape(role)}","joined":true,"online":false}`;
 }
 
+// Same /topic/room/{roomCode}/participants channel again - fired from the
+// student's Page Visibility API (see /app/visibility below), not a real
+// connect/disconnect. Lets the teacher tell "closed the tab" (buildStatusPayload,
+// online:false) apart from "just tabbed away, still connected".
+function buildTabVisibilityPayload(participantId, nickname, tabHidden) {
+  return `{"participantId":"${escape(participantId)}","nickname":"${escape(nickname)}","tabHidden":${Boolean(tabHidden)}}`;
+}
+
 function buildCodePayload(participantId, nickname, code) {
   return `{"participantId":"${escape(participantId)}","nickname":"${escape(nickname)}","code":"${escape(code || '')}"}`;
 }
@@ -136,4 +144,5 @@ module.exports = {
   buildEditingEnabledPayload,
   buildKickedPayload,
   buildParticipantRemovedPayload,
+  buildTabVisibilityPayload,
 };

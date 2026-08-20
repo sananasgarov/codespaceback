@@ -45,6 +45,26 @@ async function deactivateRoom(req, res) {
   );
 }
 
+async function activateRoom(req, res) {
+  logger.info(`API Call: Reactivating room with code: ${req.params.roomCode} by teacher ${req.teacher.email}`);
+
+  const data = await roomService.activateRoom(req.params.roomCode, req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Room has been reactivated', data })
+  );
+}
+
+async function deleteRoomPermanently(req, res) {
+  logger.warn(`API Call: Permanently deleting room with code: ${req.params.roomCode} by teacher ${req.teacher.email}`);
+
+  await roomService.deleteRoomPermanently(req.params.roomCode, req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Room has been permanently deleted' })
+  );
+}
+
 async function pinParticipant(req, res) {
   logger.info(
     `API Call: Pin request for room ${req.params.roomCode} -> participant ${req.body.participantId || '(none)'} by teacher ${req.teacher.email}`
@@ -107,6 +127,8 @@ module.exports = {
   getRoom,
   getMyRooms,
   deactivateRoom,
+  activateRoom,
+  deleteRoomPermanently,
   pinParticipant,
   setPause,
   setTask,

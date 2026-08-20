@@ -8,6 +8,7 @@ const {
   buildEditLockPayload,
   buildEditStreamPayload,
   buildExecutionPayload,
+  buildTabVisibilityPayload,
 } = require('../payloads');
 const logger = require('../../utils/logger');
 
@@ -182,6 +183,31 @@ function registerCodeStreamHandlers(stompServer) {
     messagingTemplate.convertAndSend(destination, buildExecutionPayload(participantId, executionResult));
 
     logger.info(`Execution result broadcast: room=${roomCode}, participantId=${participantId}`);
+  });
+
+  // /app/visibility/{roomCode}/{participantId} - not part of the original
+  // Java contract. Driven by the student page's Page Visibility API: fires
+  // when they switch to another tab/app while still connected (unlike
+  // eventListener.js's onDisconnect, the WS stays open here - backgrounding a
+  // tab doesn't close it). Body is the plain string 'true'/'false' (tab now
+  // hidden or visible again), mirroring /app/edit-lock's convention.
+  stompServer.onAppDestination('/app/visibility/:roomCode/:participantId', async ({ params, body }) => {
+    const roomCode = params.roomCode;
+    const participantId = params.participantId;
+    const tabHidden = body === 'true';
+
+    const participant = await participantRepository.findById(participantId);
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Visibility change rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
+
+    messagingTemplate.convertAndSend(
+      `/topic/room/${roomCode}/participants`,
+      buildTabVisibilityPayload(participantId, participant.nickname, tabHidden)
+    );
+
+    logger.debug(`Tab visibility: room=${roomCode}, participantId=${participantId}, hidden=${tabHidden}`);
   });
 }
 

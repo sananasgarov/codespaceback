@@ -33,6 +33,10 @@ function create(data) {
   return Room.create(data);
 }
 
+function deleteById(id) {
+  return Room.findByIdAndDelete(id);
+}
+
 module.exports = {
   findByRoomCode,
   existsByRoomCode,
@@ -41,4 +45,5 @@ module.exports = {
   save,
   saveAll,
   create,
+  deleteById,
 };

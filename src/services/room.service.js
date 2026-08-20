@@ -1,5 +1,7 @@
 const roomRepository = require('../repositories/room.repository');
 const participantRepository = require('../repositories/participant.repository');
+const executionLogRepository = require('../repositories/executionLog.repository');
+const roomBanRepository = require('../repositories/roomBan.repository');
 const roomMapper = require('../mappers/room.mapper');
 const RoomStatus = require('../enums/roomStatus');
 const RoomNotFoundException = require('../errors/RoomNotFoundException');
@@ -73,6 +75,45 @@ async function deleteRoom(roomCode, teacherId) {
   logger.info(`Room with code: ${roomCode} has been successfully deactivated`);
 
   broadcastToStatus(roomCode, buildRoomClosedPayload());
+}
+
+// Reverses deleteRoom above - a passive room is otherwise stuck that way
+// forever (joinRoom rejects anything non-ACTIVE, and nothing else ever
+// flips status back). Gated by requireActiveAccess at the route level, same
+// as creating a brand-new room - reactivating shouldn't be a free way around
+// a lapsed trial/subscription.
+async function activateRoom(roomCode, teacherId) {
+  logger.info(`Request to reactivate room with code: ${roomCode}`);
+
+  const room = await getOwnedRoomOrThrow(roomCode, teacherId);
+
+  room.status = RoomStatus.ACTIVE;
+  await roomRepository.save(room);
+  logger.info(`Room with code: ${roomCode} has been successfully reactivated`);
+
+  return roomMapper.toResponse(room);
+}
+
+// Unlike deleteRoom (soft: flips status to PASSIVE, keeps everything for the
+// dashboard's history), this is irreversible - the room and every
+// participant/execution log/ban it ever had are gone for good. Anyone still
+// connected gets the same roomClosed broadcast deleteRoom sends, since the
+// room disappears out from under them either way.
+async function deleteRoomPermanently(roomCode, teacherId) {
+  logger.warn(`Request to PERMANENTLY delete room with code: ${roomCode}`);
+
+  const room = await getOwnedRoomOrThrow(roomCode, teacherId);
+
+  broadcastToStatus(roomCode, buildRoomClosedPayload());
+
+  await Promise.all([
+    participantRepository.deleteAllByRoom(room._id),
+    executionLogRepository.deleteAllByRoom(room._id),
+    roomBanRepository.deleteAllByRoom(room._id),
+  ]);
+  await roomRepository.deleteById(room._id);
+
+  logger.warn(`Room ${roomCode} and all of its data permanently deleted by teacher ${teacherId}`);
 }
 
 // Sets (or clears, participantId === null) which participant's editor
@@ -204,6 +245,8 @@ module.exports = {
   getRoomByCode,
   getRoomsByTeacher,
   deleteRoom,
+  activateRoom,
+  deleteRoomPermanently,
   deactivateEmptyRooms,
   setPinnedParticipant,
   setTeacherPaused,
