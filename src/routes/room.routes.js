@@ -1,7 +1,12 @@
 const { Router } = require('express');
 const roomController = require('../controllers/room.controller');
 const { validateBody } = require('../middleware/validate');
-const { roomRequestSchema } = require('../validators/room.validator');
+const {
+  roomRequestSchema,
+  pinRequestSchema,
+  pauseRequestSchema,
+  taskRequestSchema,
+} = require('../validators/room.validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireActiveAccess } = require('../middleware/access');
 const { requireAdminKey } = require('../middleware/adminAuth');
@@ -64,5 +69,47 @@ router.patch('/cleanup', requireAdminKey, asyncHandler(roomController.cleanupEmp
  */
 router.get('/:roomCode', asyncHandler(roomController.getRoom));
 router.delete('/:roomCode', requireAuth, asyncHandler(roomController.deactivateRoom));
+
+/**
+ * @openapi
+ * /api/v1/rooms/{roomCode}/pin:
+ *   patch:
+ *     tags: [Rooms]
+ *     summary: Pin a participant's editor as the shared view for the room, or unpin (participantId null) to go back to the teacher's own editor
+ */
+router.patch(
+  '/:roomCode/pin',
+  requireAuth,
+  validateBody(pinRequestSchema),
+  asyncHandler(roomController.pinParticipant)
+);
+
+/**
+ * @openapi
+ * /api/v1/rooms/{roomCode}/pause:
+ *   patch:
+ *     tags: [Rooms]
+ *     summary: Pause or resume the teacher's own live editor broadcast
+ */
+router.patch(
+  '/:roomCode/pause',
+  requireAuth,
+  validateBody(pauseRequestSchema),
+  asyncHandler(roomController.setPause)
+);
+
+/**
+ * @openapi
+ * /api/v1/rooms/{roomCode}/task:
+ *   patch:
+ *     tags: [Rooms]
+ *     summary: Assign the room's active coding task, or clear it (title null)
+ */
+router.patch(
+  '/:roomCode/task',
+  requireAuth,
+  validateBody(taskRequestSchema),
+  asyncHandler(roomController.setTask)
+);
 
 module.exports = router;

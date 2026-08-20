@@ -7,6 +7,7 @@ function toResponse(participant, roomCodeOverride) {
     nickname: participant.nickname,
     role: participant.role,
     roomCode,
+    editingEnabled: participant.editingEnabled !== false,
   };
 }
 

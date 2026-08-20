@@ -2,7 +2,30 @@ const crypto = require('crypto');
 const sockjs = require('sockjs');
 const { match } = require('path-to-regexp');
 const { splitFrames, parseFrame, buildFrame } = require('./frame');
+const { verifyToken } = require('../../utils/jwt');
 const logger = require('../../utils/logger');
+
+// Optional teacher identity for a connection, read from a STOMP CONNECT
+// header (`Authorization: Bearer <jwt>`, e.g. via @stomp/stompjs's
+// `connectHeaders`). Verified statelessly - signature + expiry only, no DB
+// round-trip - so CONNECT handling stays synchronous like every other frame
+// here. Anonymous, missing, or invalid -> undefined, exactly like a normal
+// student connection (nothing breaks for the many destinations that don't
+// require this). A handler that actually needs real teacher power (see
+// codeStream.handler.js's /app/room-editor-stream) still has to verify DB
+// ownership of the specific room it's acting on - this only proves "some
+// currently-valid teacher token", not "the owner of this room".
+function extractTeacherId(headers) {
+  const raw = headers.Authorization || headers.authorization || '';
+  const [scheme, token] = raw.split(' ');
+  if (scheme !== 'Bearer' || !token) return undefined;
+
+  try {
+    return verifyToken(token).sub;
+  } catch {
+    return undefined;
+  }
+}
 
 // Minimal STOMP-over-SockJS broker. Equivalent of:
 //  - config/WebSocketConfig.java (registers /ws-devroom, /topic broker, /app prefix)
@@ -71,10 +94,13 @@ class StompServer {
     switch (frame.command) {
       case 'CONNECT':
       case 'STOMP':
+        state.teacherId = extractTeacherId(frame.headers);
         state.conn.write(
           buildFrame('CONNECTED', { version: '1.2', 'heart-beat': '0,0', session: sessionId })
         );
-        logger.info(`WebSocket connected: sessionId=${sessionId}`);
+        logger.info(
+          `WebSocket connected: sessionId=${sessionId}${state.teacherId ? ` (teacher=${state.teacherId})` : ''}`
+        );
         this.connectListeners.forEach((fn) => fn(sessionId));
         break;
 
@@ -115,6 +141,7 @@ class StompServer {
       return;
     }
 
+    const state = this.connections.get(sessionId);
     const result = match_.matcher(destination);
     Promise.resolve(
       match_.handler({
@@ -122,6 +149,7 @@ class StompServer {
         body: frame.body,
         headers: frame.headers,
         sessionId,
+        teacherId: state?.teacherId,
       })
     ).catch((err) => logger.error(`Error in STOMP handler for ${destination}:`, err));
   }

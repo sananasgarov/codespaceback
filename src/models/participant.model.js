@@ -21,6 +21,15 @@ const participantSchema = new Schema(
       type: String,
       default: null,
     },
+    // Teacher-controlled toggle: when false, this student's editor is
+    // read-only. Persisted (not just a live WS signal) so it survives a
+    // refresh/reconnect mid-lesson - see participant.service.js#setEditingEnabled,
+    // enforced server-side in ws/handlers/codeStream.handler.js's /app/stream
+    // handler too (not just a frontend-only lock).
+    editingEnabled: {
+      type: Boolean,
+      default: true,
+    },
     room: {
       type: Schema.Types.ObjectId,
       ref: 'Room',

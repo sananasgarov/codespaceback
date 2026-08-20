@@ -54,6 +54,38 @@ function buildRoomClosedPayload() {
   return '{"roomClosed":true}';
 }
 
+// Same /status topic as buildRoomClosedPayload. These carry structured
+// values (nested object, nullable id) that are awkward to hand-escape like
+// the payloads above, so they use JSON.stringify instead - still the same
+// wire format, just built more safely for shapes this varied.
+function buildPinnedPayload(participantId) {
+  return JSON.stringify({ pinnedParticipantId: participantId || null });
+}
+
+function buildTeacherPausedPayload(paused) {
+  return JSON.stringify({ teacherPaused: Boolean(paused) });
+}
+
+function buildTaskPayload(task) {
+  return JSON.stringify({ task: task || null });
+}
+
+// /topic/room/{roomCode}/teacher - the teacher's own live code, i.e. what
+// every student sees by default (unless a student has been pinned - see
+// buildPinnedPayload). Suppressed while the room is paused; see
+// room.service.js#setTeacherPaused and the /app/room-editor-stream handler.
+function buildTeacherCodePayload(code) {
+  return JSON.stringify({ code: code || '' });
+}
+
+// Same /edit topic as buildCodePayload/buildEditLockPayload - a persisted
+// (see participant.model.js) teacher-controlled toggle for whether this
+// student may type in their own editor at all, distinct from `locked`
+// (which is just "the 1:1 review panel is open right now").
+function buildEditingEnabledPayload(participantId, editingEnabled) {
+  return JSON.stringify({ participantId, editingEnabled: Boolean(editingEnabled) });
+}
+
 function buildExecutionResultPayload(participantId, response) {
   const result = response.errorLog != null ? response.errorLog : response.output;
   const success = response.errorLog == null;
@@ -78,4 +110,9 @@ module.exports = {
   buildExecutionPayload,
   buildExecutionResultPayload,
   buildRoomClosedPayload,
+  buildPinnedPayload,
+  buildTeacherPausedPayload,
+  buildTaskPayload,
+  buildTeacherCodePayload,
+  buildEditingEnabledPayload,
 };

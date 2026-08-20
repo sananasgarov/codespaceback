@@ -1,5 +1,6 @@
 const participantRepository = require('../../repositories/participant.repository');
 const participantService = require('../../services/participant.service');
+const roomService = require('../../services/room.service');
 const messagingTemplate = require('../messagingTemplate');
 const {
   buildStatusPayload,
@@ -30,6 +31,14 @@ function registerCodeStreamHandlers(stompServer) {
     const participant = await participantRepository.findById(participantId);
     if (!belongsToRoom(participant, roomCode)) {
       logger.warn(`Stream rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
+
+    // Server-side enforcement of the teacher's editingEnabled toggle - not
+    // just a frontend-only read-only flag, since the WS layer trusts
+    // whatever a client sends (see belongsToRoom's comment above).
+    if (participant.editingEnabled === false) {
+      logger.warn(`Stream rejected: editing is disabled for participant ${participantId}`);
       return;
     }
 
@@ -112,6 +121,28 @@ function registerCodeStreamHandlers(stompServer) {
     messagingTemplate.convertAndSend(destination, buildEditStreamPayload(participantId, liveCode));
 
     logger.debug(`Edit stream: room=${roomCode}, participantId=${participantId}, length=${liveCode.length}`);
+  });
+
+  // /app/room-editor-stream/{roomCode} - the teacher's own live code, i.e.
+  // what students see by default (see /topic/room/{roomCode}/teacher and
+  // room.model.js#teacherCode). Unlike every other handler in this file,
+  // this one grants room-wide "broadcast to everyone" power, so it's not
+  // enough to just trust a client-supplied roomCode - it requires the
+  // caller to have presented a valid teacher JWT on STOMP CONNECT (see
+  // stompServer.js's CONNECT handling), and that teacher must own this
+  // room. Anonymous connections (every student) always get `teacherId ===
+  // undefined` here and are silently rejected by roomService's ownership
+  // check via ForbiddenException, which _routeSend just logs and drops.
+  stompServer.onAppDestination('/app/room-editor-stream/:roomCode', async ({ params, body, teacherId }) => {
+    const roomCode = params.roomCode;
+    const code = body;
+
+    try {
+      await roomService.streamTeacherCode(roomCode, teacherId, code);
+      logger.debug(`Teacher editor stream: room=${roomCode}, length=${code.length}`);
+    } catch (err) {
+      logger.warn(`Teacher editor stream rejected for room=${roomCode}: ${err.message}`);
+    }
   });
 
   // /app/edit-lock/{roomCode}/{participantId} - not part of the original Java

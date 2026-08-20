@@ -24,7 +24,24 @@ async function getRoomParticipants(req, res) {
   );
 }
 
+async function setAccess(req, res) {
+  logger.info(
+    `API Call: Set editingEnabled=${req.body.editingEnabled} for participant ${req.params.participantId} by teacher ${req.teacher.email}`
+  );
+
+  const data = await participantService.setEditingEnabled(
+    req.params.participantId,
+    req.teacher.id,
+    req.body.editingEnabled
+  );
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Participant access updated', data })
+  );
+}
+
 module.exports = {
   joinRoom,
   getRoomParticipants,
+  setAccess,
 };

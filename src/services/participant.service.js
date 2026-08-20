@@ -7,8 +7,9 @@ const RoomNotFoundException = require('../errors/RoomNotFoundException');
 const RoomNotActiveException = require('../errors/RoomNotActiveException');
 const NicknameAlreadyTakenException = require('../errors/NicknameAlreadyTakenException');
 const ParticipantNotFoundException = require('../errors/ParticipantNotFoundException');
+const ForbiddenException = require('../errors/ForbiddenException');
 const messagingTemplate = require('../ws/messagingTemplate');
-const { buildJoinPayload } = require('../ws/payloads');
+const { buildJoinPayload, buildEditingEnabledPayload } = require('../ws/payloads');
 const logger = require('../utils/logger');
 
 // Equivalent of service/ParticipantService.java
@@ -97,8 +98,48 @@ async function updateParticipantCode(participantId, code, roomCode) {
   logger.info(`Code updated for participant '${participant.nickname}' by teacher`);
 }
 
+// Teacher-controlled, persisted toggle for whether this student may type in
+// their own editor at all (see participant.model.js#editingEnabled) -
+// distinct from `locked` (buildEditLockPayload), which only reflects "the
+// 1:1 review panel happens to be open right now" and isn't persisted.
+async function setEditingEnabled(participantId, teacherId, editingEnabled) {
+  logger.info(`Setting editingEnabled=${editingEnabled} for participantId=${participantId}`);
+
+  const participant = await participantRepository.findById(participantId);
+  if (!participant || !participant.room) {
+    throw new ParticipantNotFoundException(participantId);
+  }
+
+  const room = await roomRepository.findByRoomCode(participant.room.roomCode);
+  if (!room || !room.teacher || String(room.teacher) !== String(teacherId)) {
+    logger.warn(
+      `Forbidden: teacher ${teacherId} attempted to toggle editingEnabled for participant ${participantId} in a room they do not own`
+    );
+    throw new ForbiddenException('You can only manage participants in rooms you created');
+  }
+
+  participant.editingEnabled = editingEnabled;
+  await participantRepository.save(participant);
+
+  logger.info(`Participant '${participant.nickname}' editingEnabled=${editingEnabled}`);
+
+  broadcastEditingEnabled(room.roomCode, participant.id, editingEnabled);
+
+  return participantMapper.toResponse(participant, room.roomCode);
+}
+
+function broadcastEditingEnabled(roomCode, participantId, editingEnabled) {
+  try {
+    const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
+    messagingTemplate.convertAndSend(destination, buildEditingEnabledPayload(participantId, editingEnabled));
+  } catch (err) {
+    logger.error('Failed to broadcast editingEnabled change:', err);
+  }
+}
+
 module.exports = {
   joinRoom,
   getParticipantsByRoom,
   updateParticipantCode,
+  setEditingEnabled,
 };

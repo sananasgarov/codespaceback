@@ -45,6 +45,47 @@ async function deactivateRoom(req, res) {
   );
 }
 
+async function pinParticipant(req, res) {
+  logger.info(
+    `API Call: Pin request for room ${req.params.roomCode} -> participant ${req.body.participantId || '(none)'} by teacher ${req.teacher.email}`
+  );
+
+  const data = await roomService.setPinnedParticipant(req.params.roomCode, req.teacher.id, req.body.participantId);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Pinned participant updated', data })
+  );
+}
+
+async function setPause(req, res) {
+  logger.info(
+    `API Call: ${req.body.paused ? 'Pause' : 'Resume'} request for room ${req.params.roomCode} by teacher ${req.teacher.email}`
+  );
+
+  const data = await roomService.setTeacherPaused(req.params.roomCode, req.teacher.id, req.body.paused);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: `Teacher editor ${req.body.paused ? 'paused' : 'resumed'}`, data })
+  );
+}
+
+async function setTask(req, res) {
+  const isClearing = req.body.title === null;
+  logger.info(
+    `API Call: ${isClearing ? 'Clear task' : 'Assign task'} request for room ${req.params.roomCode} by teacher ${req.teacher.email}`
+  );
+
+  const data = await roomService.setCurrentTask(
+    req.params.roomCode,
+    req.teacher.id,
+    isClearing ? null : { title: req.body.title, description: req.body.description }
+  );
+
+  res.status(200).json(
+    apiResponse({ success: true, message: isClearing ? 'Task cleared' : 'Task assigned', data })
+  );
+}
+
 async function cleanupEmptyRooms(req, res) {
   logger.info('API Call: Manual cleanup triggered for empty rooms');
 
@@ -66,6 +107,9 @@ module.exports = {
   getRoom,
   getMyRooms,
   deactivateRoom,
+  pinParticipant,
+  setPause,
+  setTask,
   cleanupEmptyRooms,
   getLanguages,
 };
