@@ -1,7 +1,13 @@
 const participantRepository = require('../../repositories/participant.repository');
 const participantService = require('../../services/participant.service');
 const messagingTemplate = require('../messagingTemplate');
-const { buildStatusPayload, buildCodePayload, buildEditLockPayload, buildExecutionPayload } = require('../payloads');
+const {
+  buildStatusPayload,
+  buildCodePayload,
+  buildEditLockPayload,
+  buildEditStreamPayload,
+  buildExecutionPayload,
+} = require('../payloads');
 const logger = require('../../utils/logger');
 
 // The STOMP/SockJS layer has no per-connection auth at all (any client can
@@ -82,6 +88,30 @@ function registerCodeStreamHandlers(stompServer) {
     messagingTemplate.convertAndSend(destination, buildCodePayload(participantId, '', editedCode));
 
     logger.info(`Teacher edited code for participantId=${participantId} in room=${roomCode}`);
+  });
+
+  // /app/edit-stream/{roomCode}/{participantId} - not part of the original
+  // Java contract. The teacher's in-progress keystrokes while actively
+  // editing (before Save), mirroring /app/stream in the other direction so
+  // the student can watch their own code change live instead of only
+  // seeing the final result on save. Deliberately does NOT persist
+  // currentCode on every keystroke (unlike /app/stream) - only the actual
+  // save (/app/edit below) commits anything, this is just a live preview.
+  stompServer.onAppDestination('/app/edit-stream/:roomCode/:participantId', async ({ params, body }) => {
+    const roomCode = params.roomCode;
+    const participantId = params.participantId;
+    const liveCode = body;
+
+    const participant = await participantRepository.findById(participantId);
+    if (!belongsToRoom(participant, roomCode)) {
+      logger.warn(`Edit-stream rejected: participant ${participantId} does not belong to room ${roomCode}`);
+      return;
+    }
+
+    const destination = `/topic/room/${roomCode}/participant/${participantId}/edit`;
+    messagingTemplate.convertAndSend(destination, buildEditStreamPayload(participantId, liveCode));
+
+    logger.debug(`Edit stream: room=${roomCode}, participantId=${participantId}, length=${liveCode.length}`);
   });
 
   // /app/edit-lock/{roomCode}/{participantId} - not part of the original Java

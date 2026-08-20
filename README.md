@@ -131,6 +131,12 @@ application prefix `/app`.
 - `SEND /app/edit-lock/{roomCode}/{participantId}` — teacher opens/cancels edit mode (raw body `"true"`/`"false"`;
   not part of the original Java contract) — broadcasts `{participantId, locked}` on the `/edit` topic below so the
   student's editor locks the instant the teacher starts editing, before anything is actually saved
+- `SEND /app/edit-stream/{roomCode}/{participantId}` — teacher's in-progress keystrokes while editing, before
+  Save (raw text body = current draft; not part of the original Java contract, not persisted to the DB) —
+  broadcasts `{participantId, liveCode}` on the `/edit` topic below so the student can watch the edit happen
+  live, the same way `/app/stream` lets the teacher watch the student type. Frontend should send this
+  debounced (like the student's own `/app/stream` call), and on receipt show `liveCode` **without** unlocking
+  the editor or firing the "updated" toast — those only belong to the final save below
 - `SEND /app/edit/{roomCode}/{participantId}` — teacher saves an edit (raw text body = new code); persists it and
   broadcasts `{participantId, nickname, code}` on the `/edit` topic, which the student treats as both the new code
   and an implicit unlock
@@ -139,6 +145,11 @@ application prefix `/app`.
 - `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}` — code stream / watch response
 - `SUBSCRIBE /topic/room/{roomCode}/participant/{participantId}/edit` — edit-lock state + saved teacher edits
 - `SUBSCRIBE /topic/room/{roomCode}/executions`
+- `SUBSCRIBE /topic/room/{roomCode}/status` — room lifecycle events. Currently only fires
+  `{"roomClosed":true}`, broadcast once by `DELETE /api/v1/rooms/:roomCode` right after the room is marked
+  `PASSIVE` (see `room.service.js#deleteRoom`). Not tied to a specific participant, so **both** the teacher
+  dashboard and every student tab in the room should subscribe to it and redirect to the home page on
+  `roomClosed` — the frontend doesn't do this yet, this is backend-only for now.
 
 ## ⚠️ Security note
 

@@ -3,6 +3,8 @@ const roomMapper = require('../mappers/room.mapper');
 const RoomStatus = require('../enums/roomStatus');
 const RoomNotFoundException = require('../errors/RoomNotFoundException');
 const ForbiddenException = require('../errors/ForbiddenException');
+const messagingTemplate = require('../ws/messagingTemplate');
+const { buildRoomClosedPayload } = require('../ws/payloads');
 const logger = require('../utils/logger');
 
 // Equivalent of service/RoomService.java
@@ -55,6 +57,22 @@ async function deleteRoom(roomCode, teacherId) {
   room.status = RoomStatus.PASSIVE;
   await roomRepository.save(room);
   logger.info(`Room with code: ${roomCode} has been successfully deactivated`);
+
+  broadcastRoomClosed(roomCode);
+}
+
+// Tells everyone currently connected to this room (teacher dashboard +
+// every student tab) that it's closed, so the frontend can redirect them
+// all out to the home page. Best-effort like the other broadcasts in this
+// codebase (see participant.service.js) - a failure here must never block
+// the deactivation itself, which has already been committed to the DB.
+function broadcastRoomClosed(roomCode) {
+  try {
+    messagingTemplate.convertAndSend(`/topic/room/${roomCode}/status`, buildRoomClosedPayload());
+    logger.info(`Room closed broadcast sent for room=${roomCode}`);
+  } catch (err) {
+    logger.error('Failed to broadcast room closed:', err);
+  }
 }
 
 async function generateUniqueRoomCode() {
