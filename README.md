@@ -98,7 +98,7 @@ replaces this later.
 - `GET    /api/v1/billing/status` — 🔒 trial/subscription status
 - `POST   /api/v1/billing/subscribe` — 🔒 always `503`, no payment gateway wired up yet
 - `POST   /api/v1/billing/admin/teachers/:teacherId/grant` — 🔑 admin-only, manually activates a subscription
-- `POST   /api/v1/rooms` — 🔒 create a room `{ language: "PYTHON" | "JAVA" }` (requires an active trial/subscription)
+- `POST   /api/v1/rooms` — 🔒 create a room `{ language }` (`PYTHON` | `JAVA` | `JAVASCRIPT` | `TYPESCRIPT` | `C` | `CPP` | `CSHARP` | `PHP` | `GO` | `SQL`, requires an active trial/subscription)
 - `GET    /api/v1/rooms/mine` — 🔒 rooms owned by the current teacher
 - `GET    /api/v1/rooms/:roomCode` — includes the classroom broadcast state: `teacherCode`, `teacherEditorPaused`,
   `pinnedParticipantId`, `currentTask` (see "Classroom broadcast model" below)

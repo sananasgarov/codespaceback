@@ -142,6 +142,22 @@ function broadcastEditingEnabled(roomCode, participantId, editingEnabled) {
   }
 }
 
+// Lets a student's own page recover its last saved code after a refresh or
+// reconnect - /app/stream already persists currentCode on every keystroke
+// (see codeStream.handler.js), but until now nothing ever read it back on
+// load, so the editor just came back empty even though the code was safe in
+// the DB the whole time. Deliberately returns only {id, currentCode} - not
+// the shared participantMapper - so this never leaks into
+// getParticipantsByRoom's unauthenticated room-wide list below.
+async function getOwnCode(participantId, roomCode) {
+  const participant = await participantRepository.findById(participantId);
+  if (!participant || !participant.room || participant.room.roomCode !== roomCode) {
+    throw new ParticipantNotFoundException(participantId);
+  }
+
+  return { id: participant.id, currentCode: participant.currentCode || '' };
+}
+
 // Teacher-only: permanently removes a student from the room. Unlike
 // setEditingEnabled (which just locks the editor), this deletes the
 // participant outright, so the student is forced back to the join screen and
@@ -195,4 +211,5 @@ module.exports = {
   updateParticipantCode,
   setEditingEnabled,
   kickParticipant,
+  getOwnCode,
 };

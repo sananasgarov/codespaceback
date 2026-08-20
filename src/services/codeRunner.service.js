@@ -18,9 +18,22 @@ const QUEUE_WAIT_MS = env.execution.queueWaitSeconds * 1000;
 
 // Compiler ids from https://wandbox.org/api/list.json - re-check that list if
 // these ever start 404ing (Wandbox retires old toolchain versions over time).
+// Verified live against that endpoint on 2026-08-20.
 const COMPILERS = {
   [Language.PYTHON]: 'cpython-3.9.20',
   [Language.JAVA]: 'openjdk-jdk-21+35',
+  [Language.JAVASCRIPT]: 'nodejs-20.17.0',
+  [Language.TYPESCRIPT]: 'typescript-5.6.2',
+  [Language.C]: 'gcc-13.2.0-c',
+  [Language.CPP]: 'gcc-13.2.0',
+  // Not dotnetcore-8.0.402: verified live on 2026-08-20 that `dotnet new
+  // console` currently core-dumps on Wandbox's box (file-size ulimit hit
+  // during project scaffolding) - 6.0.425 scaffolds a lighter template and
+  // actually runs, still supports top-level statements.
+  [Language.CSHARP]: 'dotnetcore-6.0.425',
+  [Language.PHP]: 'php-8.3.12',
+  [Language.GO]: 'go-1.23.2',
+  [Language.SQL]: 'sqlite-3.46.1',
 };
 
 // Wandbox has no documented rate limit, but it's someone else's free service -
@@ -42,7 +55,7 @@ async function runCode(code, language) {
 
     logger.info(`Execution slot acquired. available=${semaphore.availablePermits()}`);
 
-    return language === Language.JAVA ? await runJava(code) : await runPython(code);
+    return language === Language.JAVA ? await runJava(code) : await runGeneric(code, language);
   } catch (err) {
     logger.error('CodeRunner error:', err);
     return `Error: ${err.message}`;
@@ -54,8 +67,12 @@ async function runCode(code, language) {
   }
 }
 
-async function runPython(code) {
-  const result = await callWandbox({ code, compiler: COMPILERS[Language.PYTHON] });
+// Every language except Java is a drop-in for Wandbox's default `code` field
+// - none of them care that the file it gets written to (`prog.<ext>`) doesn't
+// match anything in the source (no javac-style public-class-name rule), so
+// one function covers Python, JS, TS, C, C++, C#, PHP, Go and SQL alike.
+async function runGeneric(code, language) {
+  const result = await callWandbox({ code, compiler: COMPILERS[language] });
   return toResultString(result);
 }
 

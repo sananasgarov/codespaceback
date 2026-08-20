@@ -40,6 +40,14 @@ async function setAccess(req, res) {
   );
 }
 
+async function getOwnCode(req, res) {
+  const data = await participantService.getOwnCode(req.params.participantId, req.query.roomCode);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Code fetched successfully', data })
+  );
+}
+
 async function kickParticipant(req, res) {
   logger.info(
     `API Call: Kicking participant ${req.params.participantId} by teacher ${req.teacher.email}`
@@ -56,5 +64,6 @@ module.exports = {
   joinRoom,
   getRoomParticipants,
   setAccess,
+  getOwnCode,
   kickParticipant,
 };

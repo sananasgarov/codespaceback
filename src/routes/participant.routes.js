@@ -35,6 +35,21 @@ router.get('/room/:roomCode', asyncHandler(participantController.getRoomParticip
 
 /**
  * @openapi
+ * /api/v1/participants/{participantId}/code:
+ *   get:
+ *     tags: [Participants]
+ *     summary: Get a participant's own last-saved code (so their editor survives a refresh/reconnect)
+ *     parameters:
+ *       - in: query
+ *         name: roomCode
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+router.get('/:participantId/code', asyncHandler(participantController.getOwnCode));
+
+/**
+ * @openapi
  * /api/v1/participants/{participantId}/access:
  *   patch:
  *     tags: [Participants]
