@@ -6,6 +6,7 @@ function toResponse(room) {
     language: room.language,
     status: room.status,
     createdAt: room.createdAt,
+    expiresAt: room.expiresAt || null,
     // Classroom broadcast state - included here (not just pushed over WS) so
     // a page load / reconnect is correct immediately, before the next live
     // event arrives. pinnedParticipant is returned as a plain id string, not

@@ -75,6 +75,17 @@ const roomSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    // Teacher-chosen "auto-close after" duration - required at creation
+    // (see roomRequestSchema, room.service.js#createRoom), there's no
+    // "unlimited" room. Null only for rooms that pre-date this field. There's
+    // no background scheduler in this app (see roomService.deactivateEmptyRooms
+    // - that's cron/admin triggered, not an in-process timer), so expiry is
+    // enforced lazily: whenever the room is read (getRoomByCode, joinRoom,
+    // getRoomsByTeacher) - see room.service.js#applyExpiry.
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     collection: 'rooms',

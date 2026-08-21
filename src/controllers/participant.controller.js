@@ -7,7 +7,11 @@ const logger = require('../utils/logger');
 async function joinRoom(req, res) {
   logger.info(`API Call: User ${req.body.nickname} joining room ${req.body.roomCode}`);
 
-  const data = await participantService.joinRoom(req.body);
+  // req.ip, not client-supplied - app.set('trust proxy', 1) makes this the
+  // real client IP behind one reverse-proxy hop (see app.js). Used only to
+  // enforce a teacher's ban by IP (participant.service.js#banParticipant),
+  // never shown to the teacher UI.
+  const data = await participantService.joinRoom({ ...req.body, ip: req.ip });
 
   res.status(201).json(
     apiResponse({ success: true, message: 'Joined room successfully', data })

@@ -1,6 +1,7 @@
 const participantRepository = require('../repositories/participant.repository');
 const roomRepository = require('../repositories/room.repository');
 const roomBanRepository = require('../repositories/roomBan.repository');
+const roomService = require('./room.service');
 const participantMapper = require('../mappers/participant.mapper');
 const Role = require('../enums/role');
 const RoomStatus = require('../enums/roomStatus');
@@ -31,12 +32,19 @@ async function joinRoom(request) {
     throw new RoomNotFoundException(request.roomCode);
   }
 
+  // Lazy expiry: this app has no background scheduler (see
+  // room.service.js#applyExpiry), so a room's chosen duration is only
+  // enforced when something actually reads the room - a join attempt is
+  // exactly that, and it's the one place expiry absolutely must be caught
+  // before letting someone in.
+  await roomService.applyExpiry(room);
+
   if (room.status !== RoomStatus.ACTIVE) {
     logger.warn(`Join failed: Room '${request.roomCode}' is currently ${room.status}`);
     throw new RoomNotActiveException(request.roomCode);
   }
 
-  const activeBan = await roomBanRepository.findActiveBan(room._id, request.nickname);
+  const activeBan = await roomBanRepository.findActiveBan(room._id, request.nickname, request.ip);
   if (activeBan) {
     logger.warn(`Join failed: '${request.nickname}' is banned from room '${request.roomCode}' until ${activeBan.bannedUntil.toISOString()}`);
     throw new ParticipantBannedException(activeBan.bannedUntil);
@@ -59,6 +67,7 @@ async function joinRoom(request) {
     role: assignedRole,
     currentCode: '',
     room: room._id,
+    joinIp: request.ip || null,
   });
 
   logger.info(`Success: User '${participant.nickname}' joined room '${request.roomCode}' as ${assignedRole}`);
@@ -206,15 +215,17 @@ async function kickParticipant(participantId, teacherId) {
 }
 
 // Teacher-only: kicks the student like kickParticipant, and additionally
-// blocks that nickname from rejoining this room until BAN_DURATION_HOURS has
-// passed (see roomBan.repository.js and joinRoom's ban check above).
+// blocks that nickname AND their joinIp from rejoining this room until
+// BAN_DURATION_HOURS has passed (see roomBan.repository.js and joinRoom's
+// ban check above) - closes the "just pick a new nickname" bypass for
+// anyone who also isn't switching networks.
 async function banParticipant(participantId, teacherId) {
   logger.info(`Banning participantId=${participantId}`);
 
   const { participant, room } = await getOwnedParticipantOrThrow(participantId, teacherId);
 
   const bannedUntil = new Date(Date.now() + env.banDurationHours * 60 * 60 * 1000);
-  await roomBanRepository.upsertBan(room._id, participant.nickname, bannedUntil, teacherId);
+  await roomBanRepository.upsertBan(room._id, participant.nickname, participant.joinIp, bannedUntil, teacherId);
 
   broadcastKicked(room.roomCode, participant.id, bannedUntil);
   await participantRepository.deleteById(participant.id);

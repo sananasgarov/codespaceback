@@ -24,15 +24,24 @@ async function createRoom(request, teacherId) {
   logger.info(`Request received to create a new room for language: ${request.language} (teacher=${teacherId})`);
 
   const roomCode = await generateUniqueRoomCode();
-  const room = await roomRepository.create({ language: request.language, roomCode, teacher: teacherId });
+  // durationMinutes is required by roomRequestSchema - every room gets an
+  // expiry, there's no "unlimited" option.
+  const expiresAt = new Date(Date.now() + request.durationMinutes * 60 * 1000);
+  const room = await roomRepository.create({
+    language: request.language,
+    roomCode,
+    teacher: teacherId,
+    expiresAt,
+  });
 
-  logger.info(`Room created successfully with code: ${roomCode}`);
+  logger.info(`Room created successfully with code: ${roomCode} (expires ${expiresAt.toISOString()})`);
   return roomMapper.toResponse(room);
 }
 
 async function getRoomsByTeacher(teacherId) {
   logger.info(`Fetching rooms owned by teacher: ${teacherId}`);
   const rooms = await roomRepository.findByTeacher(teacherId);
+  await Promise.all(rooms.map(applyExpiry));
   return roomMapper.toResponseList(rooms);
 }
 
@@ -45,7 +54,29 @@ async function getRoomByCode(roomCode) {
     throw new RoomNotFoundException(roomCode);
   }
 
+  await applyExpiry(room);
   return roomMapper.toResponse(room);
+}
+
+// There's no background scheduler in this app (deactivateEmptyRooms further
+// down is cron/admin triggered, not an in-process timer - see its own
+// comment), so a room's chosen duration is enforced lazily instead: every
+// time a room is actually read, check whether its expiresAt has passed and,
+// if so, flip it to PASSIVE right then - same end state as a manual
+// deactivate, just triggered by whoever happened to look next instead of by
+// the teacher clicking a button. Mutates `room` in place so callers can just
+// keep using the same object afterward.
+async function applyExpiry(room) {
+  if (room.status !== RoomStatus.ACTIVE || !room.expiresAt || room.expiresAt > new Date()) {
+    return room;
+  }
+
+  room.status = RoomStatus.PASSIVE;
+  await roomRepository.save(room);
+  logger.info(`Room ${room.roomCode}: expired (past ${room.expiresAt.toISOString()}), auto-deactivated`);
+
+  broadcastToStatus(room.roomCode, buildRoomClosedPayload('expired'));
+  return room;
 }
 
 // Shared by every "teacher modifies their own room" action below (deactivate,
@@ -78,19 +109,35 @@ async function deleteRoom(roomCode, teacherId) {
   broadcastToStatus(roomCode, buildRoomClosedPayload());
 }
 
+// Every room has an expiry (roomRequestSchema requires durationMinutes,
+// there's no "unlimited" option) - used as the fallback below for a room
+// whose original duration can't be reconstructed (pre-dates this field).
+const DEFAULT_REACTIVATION_MINUTES = 60;
+
 // Reverses deleteRoom above - a passive room is otherwise stuck that way
 // forever (joinRoom rejects anything non-ACTIVE, and nothing else ever
 // flips status back). Gated by requireActiveAccess at the route level, same
 // as creating a brand-new room - reactivating shouldn't be a free way around
-// a lapsed trial/subscription.
+// a lapsed trial/subscription. Grants the room the same duration it
+// originally had, starting fresh from now - never unlimited, matching every
+// other room.
 async function activateRoom(roomCode, teacherId) {
   logger.info(`Request to reactivate room with code: ${roomCode}`);
 
   const room = await getOwnedRoomOrThrow(roomCode, teacherId);
 
+  let minutes = DEFAULT_REACTIVATION_MINUTES;
+  if (room.expiresAt && room.createdAt) {
+    const originalMs = new Date(room.expiresAt).getTime() - new Date(room.createdAt).getTime();
+    if (originalMs > 0) minutes = Math.round(originalMs / 60000);
+  }
+
   room.status = RoomStatus.ACTIVE;
+  room.expiresAt = new Date(Date.now() + minutes * 60 * 1000);
   await roomRepository.save(room);
-  logger.info(`Room with code: ${roomCode} has been successfully reactivated`);
+  logger.info(
+    `Room with code: ${roomCode} has been successfully reactivated (expires ${room.expiresAt.toISOString()})`
+  );
 
   return roomMapper.toResponse(room);
 }
@@ -270,4 +317,5 @@ module.exports = {
   setCurrentTask,
   setAiChatEnabled,
   streamTeacherCode,
+  applyExpiry,
 };

@@ -2,10 +2,18 @@ const { z } = require('zod');
 const Language = require('../enums/language');
 
 // Equivalent of dto/request/RoomRequest.java
+// durationMinutes: how long the room stays ACTIVE before it auto-closes
+// (see room.service.js#createRoom/applyExpiry) - required, no "unlimited"
+// option. Capped at 24h.
 const roomRequestSchema = z.object({
   language: z.nativeEnum(Language, {
     errorMap: () => ({ message: 'Programming language is required' }),
   }),
+  durationMinutes: z
+    .number({ required_error: 'Duration is required', invalid_type_error: 'Duration must be a number of minutes' })
+    .int()
+    .min(5, 'Duration must be at least 5 minutes')
+    .max(1440, 'Duration cannot exceed 24 hours'),
 });
 
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Must be a valid id');

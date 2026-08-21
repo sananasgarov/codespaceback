@@ -56,10 +56,14 @@ function buildExecutionPayload(participantId, result) {
 // /topic/room/{roomCode}/status - room lifecycle events, separate from the
 // participant-scoped topics above so both the teacher dashboard and every
 // student in the room can subscribe to one shared channel and react (the
-// intended use: redirect everyone out to the home page the moment the
-// teacher deactivates the room - see room.service.js#deleteRoom).
-function buildRoomClosedPayload() {
-  return '{"roomClosed":true}';
+// intended use: redirect everyone out to the home page the moment the room
+// closes - see room.service.js#deleteRoom/deleteRoomPermanently/applyExpiry).
+// `reason` lets the frontend say something accurate instead of always
+// implying the teacher just clicked a button - 'expired' (room's chosen
+// duration ran out, nobody touched anything) is a genuinely different story
+// from 'manual' (teacher deactivated/deleted it just now).
+function buildRoomClosedPayload(reason = 'manual') {
+  return `{"roomClosed":true,"reason":"${escape(reason)}"}`;
 }
 
 // Same /status topic as buildRoomClosedPayload. These carry structured

@@ -56,7 +56,7 @@ before the server can boot (Atlas dashboard -> Connect -> Drivers).
 | `JWT_SECRET` | Signs teacher auth tokens - **required**, the app refuses to boot without it (see `src/utils/jwt.js`) |
 | `JWT_EXPIRES_IN` | Teacher token lifetime (default `7d`) |
 | `TRIAL_DAYS` | Free room-creation trial length for a newly registered teacher (default `7`) |
-| `BAN_DURATION_HOURS` | How long a teacher-issued ban keeps a nickname out of the room it was banned from (default `2`) |
+| `BAN_DURATION_HOURS` | How long a teacher-issued ban keeps a nickname *and* IP out of the room it was banned from (default `2`) |
 | `ADMIN_KEY` | Shared secret for the internal `/billing/admin/...` and `/rooms/cleanup` endpoints (`x-admin-key` header). Unset = those endpoints are locked entirely |
 | `GEMINI_API_KEY` | Powers the student-facing AI chat widget (`/ai/chat`) - concept explanations only, never code. Unset = the endpoint answers `503` instead of failing silently |
 | `GEMINI_MODEL` | Gemini model id to call (default `gemini-3.7-flash`) |
@@ -101,7 +101,10 @@ replaces this later.
 - `GET    /api/v1/billing/status` — 🔒 trial/subscription status
 - `POST   /api/v1/billing/subscribe` — 🔒 always `503`, no payment gateway wired up yet
 - `POST   /api/v1/billing/admin/teachers/:teacherId/grant` — 🔑 admin-only, manually activates a subscription
-- `POST   /api/v1/rooms` — 🔒 create a room `{ language }` (`PYTHON` | `JAVA` | `JAVASCRIPT` | `TYPESCRIPT` | `C` | `CPP` | `CSHARP` | `PHP` | `GO` | `SQL`, requires an active trial/subscription)
+- `POST   /api/v1/rooms` — 🔒 create a room `{ language, durationMinutes? }` (`PYTHON` | `JAVA` | `JAVASCRIPT` |
+  `TYPESCRIPT` | `C` | `CPP` | `CSHARP` | `PHP` | `GO` | `SQL`, requires an active trial/subscription).
+  `durationMinutes` (5-1440, optional) auto-deactivates the room once it passes - enforced lazily on next
+  read (`GET /rooms/:roomCode`, `GET /rooms/mine`, join), there's no background scheduler in this app
 - `GET    /api/v1/rooms/mine` — 🔒 rooms owned by the current teacher
 - `GET    /api/v1/rooms/:roomCode` — includes the classroom broadcast state: `teacherCode`, `teacherEditorPaused`,
   `pinnedParticipantId`, `currentTask`, `aiChatEnabled` (see "Classroom broadcast model" below)

@@ -35,6 +35,15 @@ const participantSchema = new Schema(
       ref: 'Room',
       required: true,
     },
+    // Captured from req.ip at join time - lets a teacher ban (see
+    // participant.service.js#banParticipant / roomBan.model.js) block by IP
+    // as well as nickname, so a banned student can't just rejoin under a new
+    // name from the same connection. Not shown to the teacher UI (privacy) -
+    // only ever compared internally against the ban list.
+    joinIp: {
+      type: String,
+      default: null,
+    },
   },
   {
     collection: 'participants',
