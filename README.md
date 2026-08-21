@@ -110,6 +110,8 @@ replaces this later.
   `pinnedParticipantId`, `currentTask`, `aiChatEnabled` (see "Classroom broadcast model" below)
 - `PATCH  /api/v1/rooms/:roomCode/ai-chat` — 🔒 `{ enabled: boolean }` — show/hide the student-facing AI chat
   widget for this room (see `/ai/chat` below), owning teacher only
+- `GET    /api/v1/rooms/:roomCode/activity` — 🔒 recent join/leave/kick/ban history for the "Tarixçə" modal,
+  owning teacher only
 - `DELETE /api/v1/rooms/:roomCode` — 🔒 deactivate (soft, reversible), owning teacher only
 - `PATCH  /api/v1/rooms/:roomCode/activate` — 🔒 reactivate a deactivated room, owning teacher only, requires an active trial/subscription
 - `DELETE /api/v1/rooms/:roomCode/permanent` — 🔒 permanently delete the room and everything in it (participants, execution history, bans) - irreversible, owning teacher only

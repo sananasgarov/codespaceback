@@ -1,4 +1,5 @@
 const participantRepository = require('../../repositories/participant.repository');
+const roomActivityLogRepository = require('../../repositories/roomActivityLog.repository');
 const participantService = require('../../services/participant.service');
 const roomService = require('../../services/room.service');
 const messagingTemplate = require('../messagingTemplate');
@@ -208,6 +209,20 @@ function registerCodeStreamHandlers(stompServer) {
     );
 
     logger.debug(`Tab visibility: room=${roomCode}, participantId=${participantId}, hidden=${tabHidden}`);
+
+    // Feeds the teacher's "Tarixçə" (history) modal - see
+    // room.service.js#getRoomActivity. Best-effort, same as the broadcast
+    // above: a logging hiccup must never affect the live signal itself.
+    try {
+      await roomActivityLogRepository.create({
+        room: participant.room._id,
+        participantId: participant.id,
+        nickname: participant.nickname,
+        type: tabHidden ? 'TAB_HIDDEN' : 'TAB_VISIBLE',
+      });
+    } catch (err) {
+      logger.error('Failed to write room activity log (tab visibility):', err);
+    }
   });
 }
 

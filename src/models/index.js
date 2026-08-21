@@ -5,6 +5,7 @@ const ExecutionLog = require('./executionLog.model');
 const Teacher = require('./teacher.model');
 const TaskTemplate = require('./taskTemplate.model');
 const RoomBan = require('./roomBan.model');
+const RoomActivityLog = require('./roomActivityLog.model');
 
 // Relations are expressed via Schema.Types.ObjectId + `ref` in each model
 // (see participant.model.js / executionLog.model.js / room.model.js) -
@@ -19,4 +20,5 @@ module.exports = {
   Teacher,
   TaskTemplate,
   RoomBan,
+  RoomActivityLog,
 };

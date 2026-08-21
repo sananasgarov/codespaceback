@@ -35,6 +35,16 @@ async function getRoom(req, res) {
   );
 }
 
+async function getRoomActivity(req, res) {
+  logger.info(`API Call: Fetching activity log for room ${req.params.roomCode} by teacher ${req.teacher.email}`);
+
+  const data = await roomService.getRoomActivity(req.params.roomCode, req.teacher.id);
+
+  res.status(200).json(
+    apiResponse({ success: true, message: 'Activity log fetched successfully', data })
+  );
+}
+
 async function deactivateRoom(req, res) {
   logger.warn(`API Call: Deactivating room with code: ${req.params.roomCode} by teacher ${req.teacher.email}`);
 
@@ -138,6 +148,7 @@ module.exports = {
   createRoom,
   getRoom,
   getMyRooms,
+  getRoomActivity,
   deactivateRoom,
   activateRoom,
   deleteRoomPermanently,

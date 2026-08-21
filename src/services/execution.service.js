@@ -99,7 +99,7 @@ async function executeTeacherCode({ roomCode, code, teacherId }) {
     logger.warn(`Teacher execution error in room ${roomCode}: ${errorLog}`);
   }
 
-  return {
+  const response = {
     id: null,
     nickname: 'Müəllim',
     codeSnapshot: code,
@@ -107,6 +107,17 @@ async function executeTeacherCode({ roomCode, code, teacherId }) {
     errorLog,
     executedAt: new Date().toISOString(),
   };
+
+  // Students watching "Sinifi izlə" default to the teacher's own broadcast
+  // (see room.model.js#pinnedParticipant) - they should see its Run results
+  // too, not just the code. There's no Participant behind the teacher's
+  // code, so this reuses the same /executions topic with the literal
+  // string 'teacher' as the participantId - a sentinel, not a real id (see
+  // student/page.js, which matches on it the same way it matches a real
+  // pinned participantId).
+  broadcastExecutionResult(roomCode, 'teacher', response);
+
+  return response;
 }
 
 async function getRoomHistory(roomCode) {

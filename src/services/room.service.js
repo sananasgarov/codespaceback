@@ -2,7 +2,9 @@ const roomRepository = require('../repositories/room.repository');
 const participantRepository = require('../repositories/participant.repository');
 const executionLogRepository = require('../repositories/executionLog.repository');
 const roomBanRepository = require('../repositories/roomBan.repository');
+const roomActivityLogRepository = require('../repositories/roomActivityLog.repository');
 const roomMapper = require('../mappers/room.mapper');
+const roomActivityLogMapper = require('../mappers/roomActivityLog.mapper');
 const RoomStatus = require('../enums/roomStatus');
 const RoomNotFoundException = require('../errors/RoomNotFoundException');
 const ParticipantNotFoundException = require('../errors/ParticipantNotFoundException');
@@ -97,6 +99,16 @@ async function getOwnedRoomOrThrow(roomCode, teacherId) {
   return room;
 }
 
+// Teacher-facing "who joined/left" history modal - see
+// roomActivityLog.repository.js and every writer of that log
+// (participant.service.js#joinRoom/kickParticipant/banParticipant,
+// ws/eventListener.js's onDisconnect).
+async function getRoomActivity(roomCode, teacherId) {
+  const room = await getOwnedRoomOrThrow(roomCode, teacherId);
+  const entries = await roomActivityLogRepository.findRecentByRoom(room._id);
+  return roomActivityLogMapper.toResponseList(entries);
+}
+
 async function deleteRoom(roomCode, teacherId) {
   logger.warn(`Request to deactivate room with code: ${roomCode}`);
 
@@ -158,6 +170,7 @@ async function deleteRoomPermanently(roomCode, teacherId) {
     participantRepository.deleteAllByRoom(room._id),
     executionLogRepository.deleteAllByRoom(room._id),
     roomBanRepository.deleteAllByRoom(room._id),
+    roomActivityLogRepository.deleteAllByRoom(room._id),
   ]);
   await roomRepository.deleteById(room._id);
 
@@ -308,6 +321,7 @@ module.exports = {
   createRoom,
   getRoomByCode,
   getRoomsByTeacher,
+  getRoomActivity,
   deleteRoom,
   activateRoom,
   deleteRoomPermanently,

@@ -1,6 +1,7 @@
 const participantRepository = require('../repositories/participant.repository');
 const roomRepository = require('../repositories/room.repository');
 const roomBanRepository = require('../repositories/roomBan.repository');
+const roomActivityLogRepository = require('../repositories/roomActivityLog.repository');
 const roomService = require('./room.service');
 const participantMapper = require('../mappers/participant.mapper');
 const Role = require('../enums/role');
@@ -73,6 +74,7 @@ async function joinRoom(request) {
   logger.info(`Success: User '${participant.nickname}' joined room '${request.roomCode}' as ${assignedRole}`);
 
   broadcastParticipantJoined(room.roomCode, participant);
+  await logActivity(room._id, participant.id, participant.nickname, 'JOINED');
 
   // Pass roomCode explicitly - participant.room is just an ObjectId here,
   // not a populated document (no re-fetch needed for the response DTO).
@@ -90,6 +92,17 @@ function broadcastParticipantJoined(roomCode, participant) {
     );
   } catch (err) {
     logger.error('Failed to broadcast participant joined:', err);
+  }
+}
+
+// Best-effort like every broadcast above - a logging hiccup must never fail
+// the join/kick/ban action that's already committed. Feeds the teacher's
+// "Tarixçə" (history) modal - see room.service.js#getRoomActivity.
+async function logActivity(roomId, participantId, nickname, type) {
+  try {
+    await roomActivityLogRepository.create({ room: roomId, participantId, nickname, type });
+  } catch (err) {
+    logger.error(`Failed to write room activity log (${type}):`, err);
   }
 }
 
@@ -210,6 +223,7 @@ async function kickParticipant(participantId, teacherId) {
   broadcastKicked(room.roomCode, participant.id);
   await participantRepository.deleteById(participant.id);
   broadcastParticipantRemoved(room.roomCode, participant.id);
+  await logActivity(room._id, participant.id, participant.nickname, 'KICKED');
 
   logger.info(`Participant '${participant.nickname}' kicked from room '${room.roomCode}' by teacher ${teacherId}`);
 }
@@ -230,6 +244,7 @@ async function banParticipant(participantId, teacherId) {
   broadcastKicked(room.roomCode, participant.id, bannedUntil);
   await participantRepository.deleteById(participant.id);
   broadcastParticipantRemoved(room.roomCode, participant.id);
+  await logActivity(room._id, participant.id, participant.nickname, 'BANNED');
 
   logger.info(
     `Participant '${participant.nickname}' banned from room '${room.roomCode}' by teacher ${teacherId} until ${bannedUntil.toISOString()}`

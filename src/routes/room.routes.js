@@ -73,6 +73,15 @@ router.delete('/:roomCode', requireAuth, asyncHandler(roomController.deactivateR
 
 /**
  * @openapi
+ * /api/v1/rooms/{roomCode}/activity:
+ *   get:
+ *     tags: [Rooms]
+ *     summary: Recent join/leave/kick/ban history for this room (owning teacher only)
+ */
+router.get('/:roomCode/activity', requireAuth, asyncHandler(roomController.getRoomActivity));
+
+/**
+ * @openapi
  * /api/v1/rooms/{roomCode}/activate:
  *   patch:
  *     tags: [Rooms]
